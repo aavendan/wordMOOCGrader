@@ -5,6 +5,7 @@
  */
 package mooc.grader;
 
+import java.util.Iterator;
 import java.util.List;
 import javax.xml.bind.JAXBElement;
 import org.docx4j.wml.R;
@@ -51,9 +52,16 @@ public class Helper {
         return str;
     }
     
-    public static String getTextFromFtr(Object content) {
+    public static String getTextFromFtr(org.docx4j.wml.Ftr ftr) {
         String text = null;
         
+        List<Object> content = ftr.getContent();
+        
+        Iterator<Object> it = content.iterator();
+        while(it.hasNext()) {
+            Object obj = it.next();
+            System.out.println(obj.getClass());
+        }
         
         return text;
     }

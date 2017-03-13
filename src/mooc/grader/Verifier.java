@@ -1183,7 +1183,7 @@ public class Verifier {
                 Relationship rel = it.next();
                 JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
                 if (rel.getId().equals(r.getId())) {
-                    System.out.println(Helper.getTextFromFtr(part.getContents()));
+                    System.out.println(Helper.getTextFromFtr((Ftr) part.getContents()));
                 }
             }
             //
