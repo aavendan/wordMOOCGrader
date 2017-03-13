@@ -50,6 +50,13 @@ public class Helper {
 
         return str;
     }
+    
+    public static String getTextFromFtr(Object content) {
+        String text = null;
+        
+        
+        return text;
+    }
 
     public static boolean compareTo(Object s1, Object s2) {
         if (s1 == null || s2 == null) {
@@ -99,5 +106,4 @@ public class Helper {
 //            return false;
 //        }
     }
-
 }

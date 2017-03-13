@@ -12,6 +12,7 @@ import javax.xml.bind.JAXBElement;
 import org.apache.xml.utils.XMLStringDefault;
 import org.docx4j.XmlUtils;
 import org.docx4j.dml.picture.Pic;
+import org.docx4j.jaxb.Context;
 import org.docx4j.model.structure.HeaderFooterPolicy;
 import org.docx4j.model.structure.SectionWrapper;
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
@@ -24,6 +25,7 @@ import org.docx4j.openpackaging.parts.WordprocessingML.FooterPart;
 import org.docx4j.openpackaging.parts.WordprocessingML.FootnotesPart;
 import org.docx4j.openpackaging.parts.relationships.Namespaces;
 import org.docx4j.openpackaging.parts.relationships.RelationshipsPart;
+import org.docx4j.org.apache.poi.hpsf.SummaryInformation;
 import org.docx4j.relationships.Relationship;
 import org.docx4j.wml.CTBorder;
 import org.docx4j.wml.FooterReference;
@@ -71,6 +73,10 @@ public class Verifier {
     private static int GRADE_CAP = 6;
     private static int GRADE_TOC = 25;
 
+    private static int FOOTER_FIRST = 0;
+    private static int FOOTER_DEFAULT = 1;
+    private static int FOOTER_EVEN = 2;
+
     private final WordprocessingMLPackage wordMLPackage[];
     private final String fileName[];
     private final Styler styler;
@@ -114,13 +120,24 @@ public class Verifier {
 
         return objs;
     }
-    
-    private LinkedList getFooter(int index) throws Exception {
-        List<SectionWrapper> rList = wordMLPackage[index].getDocumentModel().getSections();
-        LinkedList objs = new LinkedList();
 
-        rList.stream().forEach((jaxbNode) -> {
-            objs.add(jaxbNode);
+    private LinkedList<FooterPart> getFooter(int index, int type) throws Exception {
+        List<SectionWrapper> rList = wordMLPackage[index].getDocumentModel().getSections();
+        LinkedList<FooterPart> objs = new LinkedList();
+
+        rList.stream().forEach((sectPr) -> {
+            if (sectPr.getSectPr().getType() == null) {
+                HeaderFooterPolicy hfp = sectPr.getHeaderFooterPolicy();
+                if (type == Verifier.FOOTER_FIRST) {
+                    objs.add(hfp.getFirstFooter());
+                }
+                if (type == Verifier.FOOTER_DEFAULT) {
+                    objs.add(hfp.getDefaultFooter());
+                }
+                if (type == Verifier.FOOTER_EVEN) {
+                    objs.add(hfp.getEvenFooter());
+                }
+            }
         });
 
         return objs;
@@ -1046,123 +1063,153 @@ public class Verifier {
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BORDER);
 
     }
-    
+
     private boolean isFooterNumbered(FooterPart footer) {
         Iterator<Object> content = footer.getContent().iterator();
-        while(content.hasNext()) {
-            P val = (P)content.next();
-            if(val.getPPr() != null && val.getPPr().getRPr() != null && val.getPPr().getRPr().getRStyle() != null) {
+        while (content.hasNext()) {
+            P val = (P) content.next();
+            if (val.getPPr() != null && val.getPPr().getRPr() != null && val.getPPr().getRPr().getRStyle() != null) {
                 return true;
             }
         }
         return false;
     }
-    
-    private String getTextFooter
+
+    private String getContentFooter(FooterPart part) {
+        String tmp, text = null;
+        if (part != null) {
+
+            List values = part.getContent();
+
+            if (values != null) {
+                Iterator it = values.iterator();
+
+                text = new String();
+                while (it.hasNext()) {
+                    tmp = it.next().toString();
+                    if (!tmp.contains("PAGE")) {
+                        text += tmp;
+                    }
+                }
+            }
+        }
+        return text;
+    }
 
     public void validateFooter() throws Exception {
-        
+
         int specs = 0, totalSpecs = 0;
         double grade = 0;
         boolean hasDefault = false, hasEven = false, hasFirst = false;
-        
-        
-        FooterPart firstFooter = null,defaultFooter = null,evenFooter = null,tempFooter = null;
+
+        FooterPart elOriginal = null, elResponse = null;
         HeaderFooterPolicy hfp;
-        
-        List<SectionWrapper> originalFooter = getFooter(Verifier.INDEX_ORIGINAL);
-        List<SectionWrapper> responseFooter = getFooter(Verifier.INDEX_RESPONSE);
-        
-        for (SectionWrapper sw : originalFooter) {
-            if (sw.getSectPr().getType() == null) {
 
-                hfp = sw.getHeaderFooterPolicy();
+        Iterator<FooterPart> originalFooter, responseFooter;
 
-                if (hfp.getFirstFooter() != null) {
-                    firstFooter = hfp.getFirstFooter();
-                }
-                if (hfp.getDefaultFooter() != null) {
-                    defaultFooter = hfp.getDefaultFooter();
-                }
-                if (hfp.getEvenFooter() != null) {
-                    evenFooter = hfp.getEvenFooter();
+        int type = Verifier.FOOTER_DEFAULT;
+
+        originalFooter = getFooter(Verifier.INDEX_ORIGINAL, type).iterator();
+
+        while (originalFooter.hasNext()) {
+            elOriginal = originalFooter.next();
+
+            if (elOriginal != null) {
+
+                //Verify numbered footer
+                totalSpecs = isFooterNumbered(elOriginal) ? totalSpecs + 1 : totalSpecs;
+                totalSpecs = getContentFooter(elOriginal) != null ? totalSpecs + 1 : totalSpecs;
+                System.out.println("O numbered: " + isFooterNumbered(elOriginal));
+                System.out.println("O content: " + getContentFooter(elOriginal));
+
+            }
+
+            responseFooter = getFooter(Verifier.INDEX_RESPONSE, type).iterator();
+            while (responseFooter.hasNext()) {
+                elResponse = responseFooter.next();
+
+                if (elResponse != null) {
+                    specs = isFooterNumbered(elResponse) ? (isFooterNumbered(elOriginal) == isFooterNumbered(elResponse) ? specs + 1 : specs - 1) : specs;
+                    specs = getContentFooter(elResponse) != null ? (getContentFooter(elOriginal).equals(getContentFooter(elResponse)) ? specs + 1 : specs - 1) : specs;
+                    System.out.println("R numbered: " + isFooterNumbered(elResponse));
+                    System.out.println("R content: " + getContentFooter(elResponse));
                 }
             }
         }
-        
-        for (SectionWrapper sw : responseFooter) {
-            if (sw.getSectPr().getType() == null) {
 
-                hfp = sw.getHeaderFooterPolicy();
-
-                if (hfp.getFirstFooter() != null) {
-                    tempFooter = hfp.getFirstFooter();
-                    
-                    if(firstFooter != null) {
-                        hasFirst = true;
-                        
-                        totalSpecs = isFooterNumbered(firstFooter)?totalSpecs+1:totalSpecs;
-                        specs = isFooterNumbered(firstFooter)? (isFooterNumbered(firstFooter) == isFooterNumbered(tempFooter)?specs+1:specs-1):specs;
-                        System.out.println(totalSpecs+" "+specs);
-                        
-                        System.out.println(firstFooter.getContent()+" veamos first "+tempFooter.getContent());
-                    }
-                }
-                if (hfp.getDefaultFooter() != null) {
-                    tempFooter = hfp.getDefaultFooter();
-                    
-                    if(defaultFooter != null) {
-                        hasDefault = true;
-                        
-                        totalSpecs = isFooterNumbered(defaultFooter)?totalSpecs+1:totalSpecs;
-                        specs = isFooterNumbered(defaultFooter)? (isFooterNumbered(defaultFooter) == isFooterNumbered(tempFooter)?specs+1:specs-1):specs;
-                        System.out.println(totalSpecs+" "+specs);
-                        
-                        System.out.println(defaultFooter.getContent()+" veamos default "+tempFooter.getContent());
-                    }
-                }
-                if (hfp.getEvenFooter() != null) {
-                    tempFooter = hfp.getEvenFooter();
-                    
-                    if(evenFooter != null) {
-                        hasEven = true;
-                        
-                        totalSpecs = isFooterNumbered(evenFooter)?totalSpecs+1:totalSpecs;
-                        specs = isFooterNumbered(evenFooter)? (isFooterNumbered(evenFooter) == isFooterNumbered(tempFooter)?specs+1:specs-1):specs;
-                        System.out.println(totalSpecs+" "+specs);
-                        
-                        System.out.println(evenFooter.getContent()+" veamos even "+tempFooter.getContent());
-                    }
-                }
-            }
-        }
-        
         //Has footer
         totalSpecs++;
-        if(hasDefault | hasEven | hasFirst) {
+        if (hasDefault | hasEven | hasFirst) {
             specs++;
         }
-        
-        System.out.println(totalSpecs+" :: "+specs);
-        
+
+        System.out.println(totalSpecs + " :: " + specs);
+
     }
 
     public void validate() throws Exception {
         loadDocument(Verifier.INDEX_ORIGINAL);
         loadDocument(Verifier.INDEX_RESPONSE);
-//        showXML();
+
 //        validateTOC();
 //        validateBdr();
 //        validateFootNote();
 //        validateDropCap();
 //        validateColumns();
-        validateFooter();
+//        validateFooter();
+//        showXML();
+        show();
+//        showFooterXML();
+//        pagecount();
+    }
+
+    private void show() throws Exception {
+        String query = "//w:sectPr[w:footerReference]/w:footerReference";
+        LinkedList lresponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
+
+        FooterReference r;
+
+        for (Object o1 : lresponse) {
+            r = (org.docx4j.wml.FooterReference) o1;
+            System.out.println(r.getId() + " " + r.getType().value());
+
+            //
+            RelationshipsPart rp = wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getRelationshipsPart();
+
+            List<Relationship> rels = rp.getRelationshipsByType(Namespaces.FOOTER);
+            Iterator<Relationship> it = rels.iterator();
+
+            while (it.hasNext()) {
+                Relationship rel = it.next();
+                JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
+                if (rel.getId().equals(r.getId())) {
+                    System.out.println(Helper.getTextFromFtr(part.getContents()));
+                }
+            }
+            //
+        }
+    }
+
+    private void showFooterXML() throws Exception {
+
+        //Relaciones intermedias con los otros archivos
+        RelationshipsPart rp = wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getRelationshipsPart();
+
+//        System.out.println(rp.getXML());
+        List<Relationship> rels = rp.getRelationshipsByType(Namespaces.FOOTER);
+        Iterator<Relationship> it = rels.iterator();
+        while (it.hasNext()) {
+            Relationship rel = it.next();
+            JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
+            System.out.println(rel.getId());
+            System.out.println(part.getContents());
+        }
 
     }
 
     private void showXML() throws Exception {
         //.getStyleDefinitionsPart()
-        System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getXML());
+        System.out.println(wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getXML());
 //        
 //        String query = "//w:styleBody";
 //        LinkedList body = getStyleObjectByQuery(Verifier.INDEX_ORIGINAL, query);
@@ -1170,6 +1217,5 @@ public class Verifier {
 //            System.out.println(XmlUtils.marshaltoString(obj, true, true));
 //        });
     }
-
 
 }
