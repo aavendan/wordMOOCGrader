@@ -60,6 +60,9 @@ public class Verifier {
     private static final double BDR_LIMIT_3 = 0.39;
     private static final double BDR_LIMIT_2 = 0.65;
     private static final double BDR_LIMIT_1 = 0.89;
+    
+    private static final double FOOTER_LIMIT_2 = 0.39;
+    private static final double FOOTER_LIMIT_1 = 0.89;
 
     private static final int NAME_POSITION_BDR = 1;
 
@@ -121,6 +124,7 @@ public class Verifier {
         return objs;
     }
 
+    /*OLD by sections*/
     private LinkedList<FooterPart> getFooter(int index, int type) throws Exception {
         List<SectionWrapper> rList = wordMLPackage[index].getDocumentModel().getSections();
         LinkedList<FooterPart> objs = new LinkedList();
@@ -1096,55 +1100,185 @@ public class Verifier {
         return text;
     }
 
+    private LinkedList<FooterResume> getFooters(int id) throws Exception {
+        LinkedList<FooterResume> listResume = new LinkedList();
+
+        String query = "//w:sectPr[w:footerReference]/w:footerReference";
+        LinkedList lresponse = getDocumentObjectByQuery(id, query);
+
+        FooterReference r;
+
+        for (Object o1 : lresponse) {
+            r = (org.docx4j.wml.FooterReference) o1;
+
+            RelationshipsPart rp = wordMLPackage[id].getMainDocumentPart().getRelationshipsPart();
+
+            List<Relationship> rels = rp.getRelationshipsByType(Namespaces.FOOTER);
+            Iterator<Relationship> it = rels.iterator();
+
+            while (it.hasNext()) {
+                Relationship rel = it.next();
+                JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
+                if (rel.getId().equals(r.getId())) {
+                    listResume.add(
+                            new FooterResume(r.getType().value(),
+                                    Helper.getTextFromFtr((Ftr) part.getContents()),
+                                    Helper.isNumbered((Ftr) part.getContents())
+                            )
+                    );
+                }
+            }
+        }
+
+        return listResume;
+    }
+
     public void validateFooter() throws Exception {
 
         int specs = 0, totalSpecs = 0;
         double grade = 0;
         boolean hasDefault = false, hasEven = false, hasFirst = false;
 
-        FooterPart elOriginal = null, elResponse = null;
-        HeaderFooterPolicy hfp;
+        LinkedList<FooterResume> lOriginal = getFooters(Verifier.INDEX_ORIGINAL);
+        LinkedList<FooterResume> lResponse = getFooters(Verifier.INDEX_RESPONSE);
 
-        Iterator<FooterPart> originalFooter, responseFooter;
+        FooterResume valO, valR;
+        Iterator<FooterResume> itR, itO;
 
-        int type = Verifier.FOOTER_DEFAULT;
+        itO = lOriginal.iterator();
+        while (itO.hasNext()) {
+            valO = itO.next();
 
-        originalFooter = getFooter(Verifier.INDEX_ORIGINAL, type).iterator();
+            itR = lResponse.iterator();
+            while (itR.hasNext()) {
+                valR = itR.next();
 
-        while (originalFooter.hasNext()) {
-            elOriginal = originalFooter.next();
+                if (valO.getType().equals(valR.getType())) {
 
-            if (elOriginal != null) {
+                    if (!hasDefault) {
+                        hasDefault = valR.isDefault();
 
-                //Verify numbered footer
-                totalSpecs = isFooterNumbered(elOriginal) ? totalSpecs + 1 : totalSpecs;
-                totalSpecs = getContentFooter(elOriginal) != null ? totalSpecs + 1 : totalSpecs;
-                System.out.println("O numbered: " + isFooterNumbered(elOriginal));
-                System.out.println("O content: " + getContentFooter(elOriginal));
+                        totalSpecs = valO.getText().length() > 0 ? totalSpecs + 1 : totalSpecs;
+                        if (valR.getText().length() > 0 && valR.getText().equals(valO.getText())) {
+                            specs++;
+                        }
 
-            }
+//                        System.out.println("TEXT: "+totalSpecs + " " + valO + " " + specs + " " + valR);
 
-            responseFooter = getFooter(Verifier.INDEX_RESPONSE, type).iterator();
-            while (responseFooter.hasNext()) {
-                elResponse = responseFooter.next();
+                        totalSpecs++;
+                        specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
+//                        System.out.println("NUMBERED: "+totalSpecs + " " + valO + " " + specs + " " + valR);
 
-                if (elResponse != null) {
-                    specs = isFooterNumbered(elResponse) ? (isFooterNumbered(elOriginal) == isFooterNumbered(elResponse) ? specs + 1 : specs - 1) : specs;
-                    specs = getContentFooter(elResponse) != null ? (getContentFooter(elOriginal).equals(getContentFooter(elResponse)) ? specs + 1 : specs - 1) : specs;
-                    System.out.println("R numbered: " + isFooterNumbered(elResponse));
-                    System.out.println("R content: " + getContentFooter(elResponse));
+                    } else {
+                    }
+
+                    if (!hasFirst) {
+                        hasFirst = valR.isFirst();
+                        
+                        totalSpecs = valO.getText().length() > 0 ? totalSpecs + 1 : totalSpecs;
+                        if (valR.getText().length() > 0 && valR.getText().equals(valO.getText())) {
+                            specs++;
+                        }
+
+//                        System.out.println("TEXT: "+totalSpecs + " " + valO + " " + specs + " " + valR);
+
+                        totalSpecs++;
+                        specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
+//                        System.out.println("NUMBERED: "+totalSpecs + " " + valO + " " + specs + " " + valR);
+
+                    } else {
+                    }
+
+                    if (!hasEven) {
+                        hasEven = valR.isEven();
+
+                        totalSpecs = valO.getText().length() > 0 ? totalSpecs + 1 : totalSpecs;
+                        if (valR.getText().length() > 0 && valR.getText().equals(valO.getText())) {
+                            specs++;
+                        }
+
+//                        System.out.println(totalSpecs + " " + valO + " " + specs + " " + valR);
+
+                        totalSpecs++;
+                        specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
+//                        System.out.println(totalSpecs + " " + valO + " " + specs + " " + valR);
+
+                    } else {
+                    }
+
                 }
             }
         }
 
+//        FooterPart elOriginal = null, elResponse = null;
+//        HeaderFooterPolicy hfp;
+//
+//        Iterator<FooterPart> originalFooter, responseFooter;
+//
+//        int type = Verifier.FOOTER_DEFAULT;
+//
+//        originalFooter = getFooter(Verifier.INDEX_ORIGINAL, type).iterator();
+//
+//        while (originalFooter.hasNext()) {
+//            elOriginal = originalFooter.next();
+//
+//            if (elOriginal != null) {
+//
+//                //Verify numbered footer
+//                totalSpecs = isFooterNumbered(elOriginal) ? totalSpecs + 1 : totalSpecs;
+//                totalSpecs = getContentFooter(elOriginal) != null ? totalSpecs + 1 : totalSpecs;
+//                System.out.println("O numbered: " + isFooterNumbered(elOriginal));
+//                System.out.println("O content: " + getContentFooter(elOriginal));
+//
+//            }
+//
+//            responseFooter = getFooter(Verifier.INDEX_RESPONSE, type).iterator();
+//            while (responseFooter.hasNext()) {
+//                elResponse = responseFooter.next();
+//
+//                if (elResponse != null) {
+//                    specs = isFooterNumbered(elResponse) ? (isFooterNumbered(elOriginal) == isFooterNumbered(elResponse) ? specs + 1 : specs - 1) : specs;
+//                    specs = getContentFooter(elResponse) != null ? (getContentFooter(elOriginal).equals(getContentFooter(elResponse)) ? specs + 1 : specs - 1) : specs;
+//                    System.out.println("R numbered: " + isFooterNumbered(elResponse));
+//                    System.out.println("R content: " + getContentFooter(elResponse));
+//                }
+//            }
+//        }
+        
         //Has footer
         totalSpecs++;
         if (hasDefault | hasEven | hasFirst) {
             specs++;
         }
+        
+        if (specs < 0) {
+            grade = 0;
+            System.out.println("\tNone! " + grade);
+        } else {
+            if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_1) {
+                grade += 10;
+                System.out.println("\tMost Specs! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_2) {
+                grade += 5;
+                System.out.println("\t40% - 89%! +" + grade);
+            } else {
+                grade += 1;
+                System.out.println("\t 0% - 39%! +" + grade);
+            }
+        }
 
-        System.out.println(totalSpecs + " :: " + specs);
-
+        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_COLUMNS);
+        
+    }
+    
+     private LinkedList<FooterResume> getBullets(int id) throws Exception {
+         LinkedList<FooterResume> pBullets = new LinkedList();
+         
+         return pBullets;
+     }
+    
+    public void validateBullet() throws Exception {
+    
     }
 
     public void validate() throws Exception {
@@ -1157,37 +1291,11 @@ public class Verifier {
 //        validateDropCap();
 //        validateColumns();
 //        validateFooter();
-//        showXML();
-        show();
+        validateBullet();
+        
+        showXML();
 //        showFooterXML();
 //        pagecount();
-    }
-
-    private void show() throws Exception {
-        String query = "//w:sectPr[w:footerReference]/w:footerReference";
-        LinkedList lresponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
-
-        FooterReference r;
-
-        for (Object o1 : lresponse) {
-            r = (org.docx4j.wml.FooterReference) o1;
-            System.out.println(r.getId() + " " + r.getType().value());
-
-            //
-            RelationshipsPart rp = wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getRelationshipsPart();
-
-            List<Relationship> rels = rp.getRelationshipsByType(Namespaces.FOOTER);
-            Iterator<Relationship> it = rels.iterator();
-
-            while (it.hasNext()) {
-                Relationship rel = it.next();
-                JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
-                if (rel.getId().equals(r.getId())) {
-                    System.out.println(Helper.getTextFromFtr((Ftr) part.getContents()));
-                }
-            }
-            //
-        }
     }
 
     private void showFooterXML() throws Exception {
@@ -1209,7 +1317,7 @@ public class Verifier {
 
     private void showXML() throws Exception {
         //.getStyleDefinitionsPart()
-        System.out.println(wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getXML());
+        System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getXML());
 //        
 //        String query = "//w:styleBody";
 //        LinkedList body = getStyleObjectByQuery(Verifier.INDEX_ORIGINAL, query);

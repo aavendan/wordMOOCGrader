@@ -8,6 +8,7 @@ package mooc.grader;
 import java.util.Iterator;
 import java.util.List;
 import javax.xml.bind.JAXBElement;
+import org.docx4j.wml.P;
 import org.docx4j.wml.R;
 import org.docx4j.wml.Text;
 
@@ -51,19 +52,57 @@ public class Helper {
 
         return str;
     }
-    
+
     public static String getTextFromFtr(org.docx4j.wml.Ftr ftr) {
         String text = null;
-        
+
         List<Object> content = ftr.getContent();
-        
-        Iterator<Object> it = content.iterator();
-        while(it.hasNext()) {
-            Object obj = it.next();
-            System.out.println(obj.getClass());
+
+        if (content.size() > 0) {
+            text = new String();
+            Iterator<Object> it = content.iterator();
+            while (it.hasNext()) {
+                P p = (org.docx4j.wml.P) it.next();
+                if (p.getPPr().getFramePr() == null) {
+                    text += getTextFromP(p.getContent());
+                }
+            }
+        }
+
+        return text;
+    }
+    
+    public static boolean isNumbered(org.docx4j.wml.Ftr ftr) {
+        return tillPage(ftr) != -1;
+    }
+    
+    public static int tillPage(org.docx4j.wml.Ftr ftr) {
+        String text = null;
+
+        List<Object> content = ftr.getContent();
+
+        if (content.size() > 0) {
+            text = new String();
+            Iterator<Object> it = content.iterator();
+            while (it.hasNext()) {
+                P p = (org.docx4j.wml.P) it.next();
+                if (p.getPPr().getFramePr() != null) {
+                    text += getTextFromP(p.getContent());
+                }
+            }
+            
+            text = text.trim().replace("PAGE", "").trim();
         }
         
-        return text;
+        int page;
+        
+        try {
+            page = Integer.valueOf(text);
+        } catch (Exception ex) {
+            return -1;
+        }
+
+        return page;
     }
 
     public static boolean compareTo(Object s1, Object s2) {
@@ -84,18 +123,18 @@ public class Helper {
         int r1 = (color1 >> 16) & 0xFF;
         int g1 = (color1 >> 8) & 0xFF;
         int b1 = (color1 >> 0) & 0xFF;
-        
+
         int color2 = (int) Long.parseLong(nC2, 16);
         int r2 = (color2 >> 16) & 0xFF;
         int g2 = (color2 >> 8) & 0xFF;
         int b2 = (color2 >> 0) & 0xFF;
-        
-        double meanR = (r1 + r2)/2;
-        double meanG = (g1 + g2)/2;
-        double meanB = (b1 + b2)/2;
-        
-        double distance = Math.sqrt(Math.pow((r1-r2)/meanR, 2)+Math.pow((g1-g2)/meanG, 2)+Math.pow((b1-b2)/meanB, 2));
-        
+
+        double meanR = (r1 + r2) / 2;
+        double meanG = (g1 + g2) / 2;
+        double meanB = (b1 + b2) / 2;
+
+        double distance = Math.sqrt(Math.pow((r1 - r2) / meanR, 2) + Math.pow((g1 - g2) / meanG, 2) + Math.pow((b1 - b2) / meanB, 2));
+
         if (distance < X) {
             return true;
         } else {
@@ -114,4 +153,25 @@ public class Helper {
 //            return false;
 //        }
     }
+}
+
+class FooterResume {
+    private String type, text;
+    private boolean isNumbered;
+    
+    public FooterResume(String type, String text, boolean isNumbered) {
+        this.type = type;
+        this.text = text;
+        this.isNumbered = isNumbered;
+    }
+    
+    public boolean isNumbered() {return this.isNumbered;}
+    public String getType() {return this.type;}
+    public String getText() {return this.text;}
+    
+    public boolean isDefault() {return getType().toLowerCase().equals("default");}
+    public boolean isEven() {return getType().toLowerCase().equals("even");}
+    public boolean isFirst() {return getType().toLowerCase().equals("first");}
+    
+    public String toString() { return isNumbered() + " " + getType() +" "+ getText();}
 }
