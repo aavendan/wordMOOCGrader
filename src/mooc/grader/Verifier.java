@@ -31,6 +31,8 @@ import org.docx4j.wml.CTBorder;
 import org.docx4j.wml.FooterReference;
 import org.docx4j.wml.Ftr;
 import org.docx4j.wml.HdrFtrRef;
+import org.docx4j.wml.Lvl;
+import org.docx4j.wml.Numbering;
 import org.docx4j.wml.P;
 import org.docx4j.wml.R;
 import org.docx4j.wml.Style;
@@ -60,9 +62,14 @@ public class Verifier {
     private static final double BDR_LIMIT_3 = 0.39;
     private static final double BDR_LIMIT_2 = 0.65;
     private static final double BDR_LIMIT_1 = 0.89;
-    
+
     private static final double FOOTER_LIMIT_2 = 0.39;
     private static final double FOOTER_LIMIT_1 = 0.89;
+
+    private static final double BULLET_LIMIT_4 = 0.10;
+    private static final double BULLET_LIMIT_3 = 0.39;
+    private static final double BULLET_LIMIT_2 = 0.65;
+    private static final double BULLET_LIMIT_1 = 0.89;
 
     private static final int NAME_POSITION_BDR = 1;
 
@@ -75,6 +82,8 @@ public class Verifier {
     private static int GRADE_FOOTNOTE = 7;
     private static int GRADE_CAP = 6;
     private static int GRADE_TOC = 25;
+    private static int GRADE_FOOTER = 10;
+    private static int GRADE_BULLET = 7;
 
     private static int FOOTER_FIRST = 0;
     private static int FOOTER_DEFAULT = 1;
@@ -767,7 +776,7 @@ public class Verifier {
         }
 
 //        System.out.println(specs+" "+totalSpecs);
-        if (specs < 0) {
+        if (specs == 0) {
             grade = 0;
             System.out.println("\tNone! " + grade);
         } else {
@@ -792,7 +801,6 @@ public class Verifier {
         LinkedList txtBdrOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList txtBdrResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
 
-        System.out.println("Grading: Borders");
         int grade = 0;
 
         //Same number of borderO paragraphs
@@ -1046,6 +1054,8 @@ public class Verifier {
         double totalO = spec_numberIO + spec_numberPO + spec_samePO + spec_sameIO + ((spec_sameDashO) / (spec_sameIO == 0 ? 1 : spec_sameIO)) + ((spec_sameBO + spec_sameCO + spec_sameSHO) / (spec_samePO == 0 ? 1 : spec_samePO));
         double totalR = spec_numberIR + spec_numberPR + spec_samePR + spec_sameIR + ((spec_sameDashR) / (spec_sameIR == 0 ? 1 : spec_sameIR)) + ((spec_sameBR + spec_sameCR + spec_sameSHR) / (spec_samePR == 0 ? 1 : spec_samePR));
 
+        System.out.println("Grading: Borders");
+
 //        System.out.println(totalR + " " + totalO);
         if ((double) totalR / totalO > Verifier.BDR_LIMIT_1) {
             grade += 10;
@@ -1164,7 +1174,6 @@ public class Verifier {
                         }
 
 //                        System.out.println("TEXT: "+totalSpecs + " " + valO + " " + specs + " " + valR);
-
                         totalSpecs++;
                         specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
 //                        System.out.println("NUMBERED: "+totalSpecs + " " + valO + " " + specs + " " + valR);
@@ -1174,14 +1183,13 @@ public class Verifier {
 
                     if (!hasFirst) {
                         hasFirst = valR.isFirst();
-                        
+
                         totalSpecs = valO.getText().length() > 0 ? totalSpecs + 1 : totalSpecs;
                         if (valR.getText().length() > 0 && valR.getText().equals(valO.getText())) {
                             specs++;
                         }
 
 //                        System.out.println("TEXT: "+totalSpecs + " " + valO + " " + specs + " " + valR);
-
                         totalSpecs++;
                         specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
 //                        System.out.println("NUMBERED: "+totalSpecs + " " + valO + " " + specs + " " + valR);
@@ -1198,7 +1206,6 @@ public class Verifier {
                         }
 
 //                        System.out.println(totalSpecs + " " + valO + " " + specs + " " + valR);
-
                         totalSpecs++;
                         specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
 //                        System.out.println(totalSpecs + " " + valO + " " + specs + " " + valR);
@@ -1244,14 +1251,15 @@ public class Verifier {
 //                }
 //            }
 //        }
-        
+        System.out.println("Grading: Footer");
+
         //Has footer
         totalSpecs++;
         if (hasDefault | hasEven | hasFirst) {
             specs++;
         }
-        
-        if (specs < 0) {
+
+        if (specs == 0) {
             grade = 0;
             System.out.println("\tNone! " + grade);
         } else {
@@ -1267,33 +1275,179 @@ public class Verifier {
             }
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_COLUMNS);
-        
+        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTER);
+
     }
-    
-     private LinkedList<FooterResume> getBullets(int id) throws Exception {
-         LinkedList<FooterResume> pBullets = new LinkedList();
-         
-         return pBullets;
-     }
-    
+
+    private LinkedList<P> getBullets(int id) throws Exception {
+        LinkedList<P> pBullets = new LinkedList();
+
+        String query = "//w:p[w:pPr[w:numPr[w:ilvl]]]";
+        LinkedList lresponse = getDocumentObjectByQuery(id, query);
+
+        for (Object o : lresponse) {
+            pBullets.add((P) o);
+        }
+
+        return pBullets;
+    }
+
+    private ArrayList<String> getAbstract(Object contents, int numId, int ilvl) throws Exception {
+        Numbering numbering = (org.docx4j.wml.Numbering) contents;
+        ArrayList<String> values = new ArrayList();
+
+        List<Numbering.Num> nums = numbering.getNum();
+
+        for (Numbering.Num num : nums) {
+
+            if (num.getNumId().intValue() == numId) {
+
+                int abstractNumId = num.getAbstractNumId().getVal().intValue();
+                List<Numbering.AbstractNum> numsAbstract = numbering.getAbstractNum();
+
+                for (Numbering.AbstractNum abs : numsAbstract) {
+
+                    if (abs.getAbstractNumId().intValue() == abstractNumId) {
+
+                        List<Lvl> lvls = abs.getLvl();
+                        for (Lvl lvl : lvls) {
+
+                            if (lvl.getIlvl().intValue() == ilvl) {
+                                values.add(Helper.escapeNonAscii(lvl.getLvlText().getVal()));
+                                values.add(lvl.getNumFmt().getVal().value());
+                                return values;
+                            }
+
+                        }
+
+                    }
+
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private ArrayList<String> getAbstractBulletLevel(int id, int numId, int ilvl) throws Exception {
+        RelationshipsPart rp = wordMLPackage[id].getMainDocumentPart().getRelationshipsPart();
+        ArrayList<String> values = null;
+
+        List<Relationship> rels = rp.getRelationshipsByType(Namespaces.NUMBERING);
+        Iterator<Relationship> it = rels.iterator();
+        while (it.hasNext()) {
+            Relationship rel = it.next();
+            JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
+            values = getAbstract(part.getContents(), numId, ilvl);
+            if (values != null) {
+                return values;
+            }
+        }
+
+        return null;
+    }
+
     public void validateBullet() throws Exception {
-    
+        int specs = 0, totalSpecs = 0;
+        double grade = 0;
+
+        int ilvlO = -1, ilvlR = -1, numIdO = -1, numIdR = -1;
+        String contentO = "", contentR = "";
+        ArrayList<String> valuesO, valuesR;
+
+        LinkedList<P> pBulletOriginal = getBullets(Verifier.INDEX_ORIGINAL);
+        LinkedList<P> pBulletResponse = getBullets(Verifier.INDEX_RESPONSE);
+
+        //Has some
+        totalSpecs = pBulletOriginal.size() > 0 ? totalSpecs + 1 : totalSpecs;
+        specs = pBulletResponse.size() > 0 ? specs + 1 : specs;
+
+        for (P p1 : pBulletOriginal) {
+
+            //Counting its bullet type & symbol
+            totalSpecs++;
+            numIdO = p1.getPPr().getNumPr().getNumId().getVal().intValue();
+            totalSpecs++;
+            ilvlO = p1.getPPr().getNumPr().getIlvl().getVal().intValue();
+
+            //Counting its text
+            totalSpecs++;
+            contentO = Helper.getTextFromP(p1.getContent()).substring(0, 20);
+
+            valuesO = getAbstractBulletLevel(Verifier.INDEX_ORIGINAL, numIdO, ilvlO);
+
+//            System.out.println(ilvlO + " " + numIdO + " " + contentO+" "+valuesO);
+            for (P p2 : pBulletResponse) {
+
+                numIdR = p2.getPPr().getNumPr().getNumId().getVal().intValue();
+                ilvlR = p2.getPPr().getNumPr().getIlvl().getVal().intValue();
+
+                contentR = Helper.getTextFromP(p2.getContent()).substring(0, 19);
+
+                valuesR = getAbstractBulletLevel(Verifier.INDEX_RESPONSE, numIdR, ilvlR);
+
+                //Counting same text in response
+                if (contentO.contains(contentR)) {
+                    specs++;
+//                    System.out.println(ilvlR + " " + numIdR + " " + contentR);
+
+                    //Counting same bullet type
+                    if (valuesR.get(1).equals(valuesO.get(1))) {
+                        specs++;
+
+                        //Counting same bullet symbol
+                        if (valuesR.get(0).equals(valuesO.get(0))) {
+//                            System.out.println(valuesR);
+                            specs++;
+                        }
+
+                    }
+                }
+
+            }
+        }
+
+        System.out.println("Grading: Bullets");
+
+        if (specs == 0) {
+            grade = 0;
+            System.out.println("\tNone! " + grade);
+        } else {
+            if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_1) {
+                grade += 7;
+                System.out.println("\tMost Specs! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_2) {
+                grade += 6;
+                System.out.println("\t66% - 89%! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_3) {
+                grade += 5;
+                System.out.println("\t40% - 65%! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_4) {
+                grade += 3;
+                System.out.println("\t11% - 39%! +" + grade);
+            } else {
+                grade += 1;
+                System.out.println("\t 0% - 10%! +" + grade);
+            }
+        }
+
+        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BULLET);
+
     }
 
     public void validate() throws Exception {
         loadDocument(Verifier.INDEX_ORIGINAL);
         loadDocument(Verifier.INDEX_RESPONSE);
 
-//        validateTOC();
-//        validateBdr();
-//        validateFootNote();
-//        validateDropCap();
-//        validateColumns();
-//        validateFooter();
+        validateTOC();
+        validateBdr();
+        validateFootNote();
+        validateDropCap();
+        validateColumns();
+        validateFooter();
         validateBullet();
-        
-        showXML();
+
+//        showXML();
 //        showFooterXML();
 //        pagecount();
     }
@@ -1301,23 +1455,31 @@ public class Verifier {
     private void showFooterXML() throws Exception {
 
         //Relaciones intermedias con los otros archivos
-        RelationshipsPart rp = wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getRelationshipsPart();
+        RelationshipsPart rp = wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getRelationshipsPart();
 
-//        System.out.println(rp.getXML());
-        List<Relationship> rels = rp.getRelationshipsByType(Namespaces.FOOTER);
+        List<Relationship> rels = rp.getRelationshipsByType(Namespaces.NUMBERING);
         Iterator<Relationship> it = rels.iterator();
         while (it.hasNext()) {
             Relationship rel = it.next();
             JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
-            System.out.println(rel.getId());
-            System.out.println(part.getContents());
+            System.out.println(part.getXML());
         }
 
+//        List<Relationship> rels = rp.getRelationshipsByType(Namespaces.FOOTER);
+//        Iterator<Relationship> it = rels.iterator();
+//        while (it.hasNext()) {
+//            Relationship rel = it.next();
+//            JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
+//            System.out.println(rel.getId());
+//            System.out.println(part.getContents());
+//        }
     }
 
     private void showXML() throws Exception {
         //.getStyleDefinitionsPart()
-        System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getXML());
+        //System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getXML());
+
+        System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getStyleDefinitionsPart().getXML());
 //        
 //        String query = "//w:styleBody";
 //        LinkedList body = getStyleObjectByQuery(Verifier.INDEX_ORIGINAL, query);

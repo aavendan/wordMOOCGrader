@@ -71,11 +71,11 @@ public class Helper {
 
         return text;
     }
-    
+
     public static boolean isNumbered(org.docx4j.wml.Ftr ftr) {
         return tillPage(ftr) != -1;
     }
-    
+
     public static int tillPage(org.docx4j.wml.Ftr ftr) {
         String text = null;
 
@@ -90,12 +90,12 @@ public class Helper {
                     text += getTextFromP(p.getContent());
                 }
             }
-            
+
             text = text.trim().replace("PAGE", "").trim();
         }
-        
+
         int page;
-        
+
         try {
             page = Integer.valueOf(text);
         } catch (Exception ex) {
@@ -116,6 +116,28 @@ public class Helper {
 
     public static boolean isHeading(String type, String s1, String s2) {
         return s1.compareTo(type) == 0 || s2.compareTo(type) == 0;
+    }
+
+    public static String escapeNonAscii(String str) {
+
+        StringBuilder retStr = new StringBuilder();
+        for (int i = 0; i < str.length(); i++) {
+            int cp = Character.codePointAt(str, i);
+            int charCount = Character.charCount(cp);
+            if (charCount > 1) {
+                i += charCount - 1; // 2.
+                if (i >= str.length()) {
+                    throw new IllegalArgumentException("truncated unexpectedly");
+                }
+            }
+
+            if (cp < 128) {
+                retStr.appendCodePoint(cp);
+            } else {
+                retStr.append(String.format("\\u%x", cp));
+            }
+        }
+        return retStr.toString();
     }
 
     public static boolean similarTo(String nC1, String nC2, double X) {
@@ -156,22 +178,41 @@ public class Helper {
 }
 
 class FooterResume {
+
     private String type, text;
     private boolean isNumbered;
-    
+
     public FooterResume(String type, String text, boolean isNumbered) {
         this.type = type;
         this.text = text;
         this.isNumbered = isNumbered;
     }
-    
-    public boolean isNumbered() {return this.isNumbered;}
-    public String getType() {return this.type;}
-    public String getText() {return this.text;}
-    
-    public boolean isDefault() {return getType().toLowerCase().equals("default");}
-    public boolean isEven() {return getType().toLowerCase().equals("even");}
-    public boolean isFirst() {return getType().toLowerCase().equals("first");}
-    
-    public String toString() { return isNumbered() + " " + getType() +" "+ getText();}
+
+    public boolean isNumbered() {
+        return this.isNumbered;
+    }
+
+    public String getType() {
+        return this.type;
+    }
+
+    public String getText() {
+        return this.text;
+    }
+
+    public boolean isDefault() {
+        return getType().toLowerCase().equals("default");
+    }
+
+    public boolean isEven() {
+        return getType().toLowerCase().equals("even");
+    }
+
+    public boolean isFirst() {
+        return getType().toLowerCase().equals("first");
+    }
+
+    public String toString() {
+        return isNumbered() + " " + getType() + " " + getText();
+    }
 }
