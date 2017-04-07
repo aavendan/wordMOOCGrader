@@ -21,7 +21,7 @@ public class Grader {
             //String original = "docx/Avendaño Allan-seccionWORD_V1R.docx";
             //String original = "docx/Avendaño Allan-seccionWORD_V2.docx";
             String original = "docx/original.docx";
-            String respuesta = "docx/response.docx";
+            String respuesta = "docx/response-2.docx";
             Verifier v = new Verifier();
             v.setFileName(Verifier.INDEX_ORIGINAL, original);
             v.setFileName(Verifier.INDEX_RESPONSE, respuesta);

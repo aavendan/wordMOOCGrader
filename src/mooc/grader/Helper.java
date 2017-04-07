@@ -41,10 +41,12 @@ public class Helper {
                 List<Object> c2 = r.getContent();
 
                 for (Object o2 : c2) {
-                    JAXBElement element = (JAXBElement) o2;
-                    if (element.getValue() instanceof org.docx4j.wml.Text) {
-                        Text text = (org.docx4j.wml.Text) element.getValue();
-                        str += text.getValue();
+                    if (o2 instanceof javax.xml.bind.JAXBElement) {
+                        JAXBElement element = (JAXBElement) o2;
+                        if (element.getValue() instanceof org.docx4j.wml.Text) {
+                            Text text = (org.docx4j.wml.Text) element.getValue();
+                            str += text.getValue();
+                        }
                     }
                 }
             }
@@ -174,6 +176,12 @@ public class Helper {
 //        } else {
 //            return false;
 //        }
+    }
+
+    public static String shorterVersion(String toString) {
+       if(toString.length() > 10)
+           return toString.substring(0, 10);
+       return toString;
     }
 }
 

@@ -11,6 +11,7 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBElement;
 import org.apache.xml.utils.XMLStringDefault;
 import org.docx4j.XmlUtils;
+import org.docx4j.dml.CTNonVisualDrawingProps;
 import org.docx4j.dml.picture.Pic;
 import org.docx4j.jaxb.Context;
 import org.docx4j.model.structure.HeaderFooterPolicy;
@@ -44,33 +45,39 @@ import org.docx4j.wml.Text;
  */
 public class Verifier {
 
-    private static final double TOC_LIMIT_STYLE = 0.70;
-    private static final double TOC_LIMIT_HEADINGS = 0.70;
-    private static final double TOC_LIMIT_ELEMENTSINTOC = 0.40;
+    private static final double TOC_THRESHOLD_STYLE = 0.70;
+    private static final double TOC_THRESHOLD_HEADINGS = 0.70;
+    private static final double TOC_THRESHOLD_ELEMENTSINTOC = 0.40;
 
-    private static final double CD_LIMIT_ALL = 0.70;
-    private static final double CD_LIMIT_SOME = 0.40;
+    private static final double CD_LIMIT_2 = 0.70;
+    private static final double CD_LIMIT_1 = 0.40;
 
-    private static final double FOOTNOTE_LIMIT_1 = 0.39;
     private static final double FOOTNOTE_LIMIT_2 = 0.89;
-
-    private static final double COLUMN_LIMIT_1 = 0.39;
+    private static final double FOOTNOTE_LIMIT_1 = 0.39;
+    
     private static final double COLUMN_LIMIT_2 = 0.89;
-    private static final double COLUMN_MINIMUM_SAME_PARAGRAPHS = 0.70;
-
+    private static final double COLUMN_LIMIT_1 = 0.39;
+    
     private static final double BDR_LIMIT_4 = 0.10;
     private static final double BDR_LIMIT_3 = 0.39;
     private static final double BDR_LIMIT_2 = 0.65;
     private static final double BDR_LIMIT_1 = 0.89;
 
-    private static final double FOOTER_LIMIT_2 = 0.39;
-    private static final double FOOTER_LIMIT_1 = 0.89;
-
-    private static final double BULLET_LIMIT_4 = 0.10;
-    private static final double BULLET_LIMIT_3 = 0.39;
-    private static final double BULLET_LIMIT_2 = 0.65;
-    private static final double BULLET_LIMIT_1 = 0.89;
-
+    private static final double FOOTER_LIMIT_2 = 0.89;
+    private static final double FOOTER_LIMIT_1 = 0.39;
+    
+    private static final double BULLET_LIMIT_4 = 0.89;
+    private static final double BULLET_LIMIT_3 = 0.65;
+    private static final double BULLET_LIMIT_2 = 0.39;
+    private static final double BULLET_LIMIT_1 = 0.10;
+    
+    private static final double BREAK_LIMIT_4 = 0.89;
+    private static final double BREAK_LIMIT_3 = 0.65;
+    private static final double BREAK_LIMIT_2 = 0.39;
+    private static final double BREAK_LIMIT_1 = 0.10;
+    
+    private static final double COLUMN_MINIMUM_SAME_PARAGRAPHS = 0.70;
+    
     private static final int NAME_POSITION_BDR = 1;
 
     private static final int MAX_ELEMENTS = 2;
@@ -84,14 +91,18 @@ public class Verifier {
     private static int GRADE_TOC = 25;
     private static int GRADE_FOOTER = 10;
     private static int GRADE_BULLET = 7;
+    private static int GRADE_BREAK = 10;
+    private static int GRADE_TOTAL = 100;
 
     private static int FOOTER_FIRST = 0;
     private static int FOOTER_DEFAULT = 1;
     private static int FOOTER_EVEN = 2;
 
-    private final WordprocessingMLPackage wordMLPackage[];
+    private static WordprocessingMLPackage wordMLPackage[];
     private final String fileName[];
     private final Styler styler;
+    
+    public int totalGrade = 0;
 
     public Verifier() {
         wordMLPackage = new WordprocessingMLPackage[Verifier.MAX_ELEMENTS];
@@ -122,7 +133,7 @@ public class Verifier {
         return objs;
     }
 
-    public LinkedList getDocumentObjectByQuery(int index, String query) throws Exception {
+    public static LinkedList getDocumentObjectByQuery(int index, String query) throws Exception {
         List<Object> rList = wordMLPackage[index].getMainDocumentPart().getJAXBNodesViaXPath(query, false);
         LinkedList objs = new LinkedList();
 
@@ -338,7 +349,7 @@ public class Verifier {
 //            System.out.print("\t\tSpacing After:");
             check8 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
-            return (double) (check3 + check4 + check5 + check6 + check7 + check8) / values >= Verifier.TOC_LIMIT_STYLE;
+            return (double) (check3 + check4 + check5 + check6 + check7 + check8) / values >= Verifier.TOC_THRESHOLD_STYLE;
         }
 
         return false;
@@ -354,6 +365,7 @@ public class Verifier {
 
     public void validateTOC() throws Exception {
 
+        int grade = 0;
         LinkedList tocOriginal = loadTOC(Verifier.INDEX_ORIGINAL);
         LinkedList tocResponse = loadTOC(Verifier.INDEX_RESPONSE);
 
@@ -361,8 +373,6 @@ public class Verifier {
         LinkedList headingsResponse = loadHeadings(Verifier.INDEX_RESPONSE);
 
         System.out.println("Grading: Table of Contents");
-
-        int grade = 0;
 
         //TOC: exist or not
         if (tocResponse.size() > 0) {
@@ -393,7 +403,7 @@ public class Verifier {
             notHere = tocResponse.size() - sameInOriginal;
             totalTOC = sameInOriginal - notHere - missing;
 
-            if ((double) totalTOC / tocOriginal.size() >= Verifier.TOC_LIMIT_ELEMENTSINTOC) {
+            if ((double) totalTOC / tocOriginal.size() >= Verifier.TOC_THRESHOLD_ELEMENTSINTOC) {
                 grade += 10;
                 System.out.println("\tMost elements in TOC! +10");
             } else {
@@ -447,15 +457,16 @@ public class Verifier {
 
         }
 
-        if ((double) foundStyle / headingsOriginal.size() >= Verifier.TOC_LIMIT_HEADINGS) {
+        //Correct Style
+        if ((double) foundStyle / headingsOriginal.size() >= Verifier.TOC_THRESHOLD_HEADINGS) {
             grade += 5;
             System.out.println("\tMost with correct styles! +5");
         } else {
             System.out.println("\tFew headings with correct styles +0");
         }
 
-        //Listing
-        if ((double) foundListing / headingsOriginal.size() >= Verifier.TOC_LIMIT_HEADINGS) {
+        //Correct Listing
+        if ((double) foundListing / headingsOriginal.size() >= Verifier.TOC_THRESHOLD_HEADINGS) {
             grade += 5;
             System.out.println("\tMost with correct listing! +5");
         } else {
@@ -463,6 +474,7 @@ public class Verifier {
         }
 
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_TOC);
+        totalGrade += grade;
     }
 
     private boolean isFootnoteReference(Object o) {
@@ -525,8 +537,9 @@ public class Verifier {
 
     public void validateFootNote() throws Exception {
 
+        int grade = 0;
+        
         String query;
-
         query = "//w:p[w:r[w:rPr[w:rStyle[@w:val='FootnoteReference']]]]";
 
         LinkedList footNoteOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
@@ -540,7 +553,6 @@ public class Verifier {
 
         System.out.println("Grading: Footnotes");
 
-        int grade = 0;
         int count_specs = 0;
         double total_specs = 0;
         boolean sameWords = true, sameText = true;
@@ -590,9 +602,12 @@ public class Verifier {
         }
 
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTNOTE);
+        totalGrade += grade;
     }
 
     private void validateDropCap() throws Exception {
+        
+        int grade = 0;
         String query = "//w:p[w:pPr[w:framePr[@w:dropCap]]] | //w:p[w:pPr[w:framePr[@w:dropCap]]]/following-sibling::*[1]";
         LinkedList dropCapOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList dropCapResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
@@ -649,21 +664,20 @@ public class Verifier {
         }
 
 //        System.out.println((double) counterDL / capCounterOriginal.doubleValue() + " " + (double) counterD / capCounterOriginal.doubleValue() + " " + (double) counterML / capCounterOriginal.doubleValue() + " " + (double) counterM / capCounterOriginal.doubleValue());
-        int grade = 0;
-
-        if ((double) counterDL / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_ALL) {
+        
+        if ((double) counterDL / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_2) {
             grade += 6;
             System.out.println("\tMost Specs! +" + grade);
-        } else if ((double) counterD / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_SOME) {
+        } else if ((double) counterD / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_1) {
             grade += 5;
             System.out.println("\t66% - 89%! +" + grade);
-        } else if ((double) counterD / capCounterOriginal.doubleValue() < Verifier.CD_LIMIT_SOME && (double) counterML / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_SOME && (double) counterML / capCounterOriginal.doubleValue() <= Verifier.CD_LIMIT_ALL) {
+        } else if ((double) counterD / capCounterOriginal.doubleValue() < Verifier.CD_LIMIT_1 && (double) counterML / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_1 && (double) counterML / capCounterOriginal.doubleValue() <= Verifier.CD_LIMIT_2) {
             grade += 4;
             System.out.println("\t40% - 65%! +" + grade);
-        } else if ((double) counterML / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_ALL && (double) counterD / capCounterOriginal.doubleValue() < Verifier.CD_LIMIT_SOME) {
+        } else if ((double) counterML / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_2 && (double) counterD / capCounterOriginal.doubleValue() < Verifier.CD_LIMIT_1) {
             grade += 2;
             System.out.println("\t11% - 39%! +" + grade);
-        } else if ((double) counterM / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_SOME && (double) counterM / capCounterOriginal.doubleValue() <= Verifier.CD_LIMIT_ALL) {
+        } else if ((double) counterM / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_1 && (double) counterM / capCounterOriginal.doubleValue() <= Verifier.CD_LIMIT_2) {
             grade += 1;
             System.out.println("\t 0% - 10%! +" + grade);
         } else {
@@ -671,15 +685,18 @@ public class Verifier {
         }
 
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_CAP);
+        totalGrade += grade;
     }
 
     private void validateColumns() throws Exception {
+        
+        int grade = 0;
+        
         int specs = 0, totalSpecs = 0;
         String nquery, textO, textR;
         int countDifferentText;
         P pnO, pnR, pO1, pO2, pR1, pR2;
-        int grade = 0;
-
+        
         String query = "//w:p[w:pPr[w:sectPr[w:cols[@w:num]]]] | //w:p[w:pPr[w:sectPr[w:cols[@w:num]]]]/preceding-sibling::w:p[w:pPr[w:sectPr[w:cols]]][1]";
         LinkedList dropCapOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList dropCapResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
@@ -793,15 +810,17 @@ public class Verifier {
         }
 
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_COLUMNS);
+        totalGrade += grade;
 
     }
 
     private void validateBdr() throws Exception {
+        
+        int grade = 0;
+        
         String query = "//w:p[w:pPr[w:pBdr]]";
         LinkedList txtBdrOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList txtBdrResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
-
-        int grade = 0;
 
         //Same number of borderO paragraphs
         double spec_numberPO = 0, spec_numberPR = 0;
@@ -1075,7 +1094,7 @@ public class Verifier {
         }
 
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BORDER);
-
+        totalGrade += grade;
     }
 
     private boolean isFooterNumbered(FooterPart footer) {
@@ -1145,8 +1164,9 @@ public class Verifier {
 
     public void validateFooter() throws Exception {
 
+        int grade = 0;
+        
         int specs = 0, totalSpecs = 0;
-        double grade = 0;
         boolean hasDefault = false, hasEven = false, hasFirst = false;
 
         LinkedList<FooterResume> lOriginal = getFooters(Verifier.INDEX_ORIGINAL);
@@ -1263,10 +1283,10 @@ public class Verifier {
             grade = 0;
             System.out.println("\tNone! " + grade);
         } else {
-            if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_1) {
+            if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_2) {
                 grade += 10;
                 System.out.println("\tMost Specs! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_2) {
+            } else if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_1) {
                 grade += 5;
                 System.out.println("\t40% - 89%! +" + grade);
             } else {
@@ -1276,7 +1296,7 @@ public class Verifier {
         }
 
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTER);
-
+        totalGrade += grade;
     }
 
     private LinkedList<P> getBullets(int id) throws Exception {
@@ -1348,9 +1368,10 @@ public class Verifier {
     }
 
     public void validateBullet() throws Exception {
+        
+        int grade = 0;
+        
         int specs = 0, totalSpecs = 0;
-        double grade = 0;
-
         int ilvlO = -1, ilvlR = -1, numIdO = -1, numIdR = -1;
         String contentO = "", contentR = "";
         ArrayList<String> valuesO, valuesR;
@@ -1413,16 +1434,16 @@ public class Verifier {
             grade = 0;
             System.out.println("\tNone! " + grade);
         } else {
-            if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_1) {
+            if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_4) {
                 grade += 7;
                 System.out.println("\tMost Specs! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_2) {
+            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_3) {
                 grade += 6;
                 System.out.println("\t66% - 89%! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_3) {
+            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_2) {
                 grade += 5;
                 System.out.println("\t40% - 65%! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_4) {
+            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_1) {
                 grade += 3;
                 System.out.println("\t11% - 39%! +" + grade);
             } else {
@@ -1432,7 +1453,245 @@ public class Verifier {
         }
 
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BULLET);
+        totalGrade += grade;
+    }
 
+    public LinkedList getPageBreaks(int index) throws Exception {
+        String query = "//w:p[w:r[w:br[contains(@w:type,'page')]]]";
+        return getDocumentObjectByQuery(index, query);
+    }
+
+    public LinkedList getSectionBreaks(int index) throws Exception {
+        String query = "//w:p[w:pPr[w:sectPr]]";
+        return getDocumentObjectByQuery(index, query);
+    }
+
+    public String lookForImage(int index, P p) throws Exception {
+        String query = "//w:p[@w14:paraId='" + p.getParaId() + "']//pic:cNvPr";
+        LinkedList images = getDocumentObjectByQuery(index, query);
+        if (images.size() > 0) {
+            CTNonVisualDrawingProps props = (CTNonVisualDrawingProps) images.get(0);
+            return props.getDescr();
+        }
+
+        return null;
+    }
+
+    public String lookForSdt(int index, P p) throws Exception {
+        String text, query = "//w:sdt[w:sdtContent]//w:hyperlink//w:r";
+        LinkedList ps = getDocumentObjectByQuery(index, query);
+        ListIterator it2 = ps.listIterator(ps.size());
+
+        while (it2.hasPrevious()) {
+            Object o = it2.previous();
+            if (o instanceof R) {
+                text = Helper.getTextFromR(((R) o).getContent());
+                if (text.length() > 0) {
+                    return text;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public String getPreviousToSectionBreak(int index, P p, LinkedList elements) throws Exception {
+
+        int i;
+        for (i = 0; i < elements.size(); i++) {
+            if (elements.get(i) instanceof P && ((P) elements.get(i)).getParaId().compareTo(p.getParaId()) == 0) {
+                break;
+            }
+        }
+
+        //looking for previousTextsO with any content
+        for (int j = i - 1; j >= 0; j--) {
+            //check for text
+            if (elements.get(j) instanceof P && Helper.getTextFromP(((P) elements.get(j)).getContent()).length() > 0) {
+                return Helper.getTextFromP(((P) elements.get(j)).getContent());
+            }
+
+            //check for image
+            if (elements.get(j) instanceof P && lookForImage(index, (P) elements.get(j)) != null) {
+                return lookForImage(index, (P) elements.get(j));
+            }
+
+            //check for sdt
+            if (elements.get(j) instanceof P && lookForSdt(index, (P) elements.get(j)) != null) {
+                return lookForSdt(index, (P) elements.get(j));
+            }
+        }
+
+        return null;
+    }
+
+    public String getPreviousToBreak(int index, P p, LinkedList elements) throws Exception {
+        String text = Helper.getTextFromP(p.getContent());
+
+        //If there's some text then return itself
+        if (text.length() > 0) {
+            return text;
+        }
+
+        //Or an image
+        text = lookForImage(index, p);
+        if (text != null) {
+            return text;
+        }
+
+        //Or sdt
+        text = lookForSdt(index, p);
+        if (text != null) {
+            return text;
+        }
+
+        //Otherwise: look for something on previousTextsO
+        //first: my position
+        int i;
+        for (i = 0; i < elements.size(); i++) {
+            if (elements.get(i) instanceof P && ((P) elements.get(i)).getParaId().compareTo(p.getParaId()) == 0) {
+                break;
+            }
+        }
+
+        //System.out.println("RsidR " + p.getParaId() + " curent position: " + i);
+
+        //looking for previousTextsO with any content
+        for (int j = i - 1; j >= 0; j--) {
+            //check for text
+            if (elements.get(j) instanceof P && Helper.getTextFromP(((P) elements.get(j)).getContent()).length() > 0) {
+                return Helper.getTextFromP(((P) elements.get(j)).getContent());
+            }
+
+            //check for image
+            if (elements.get(j) instanceof P && lookForImage(index, (P) elements.get(j)) != null) {
+                return lookForImage(index, (P) elements.get(j));
+            }
+
+            //check for sdt
+            if (elements.get(j) instanceof P && lookForSdt(index, (P) elements.get(j)) != null) {
+                return lookForSdt(index, (P) elements.get(j));
+            }
+        }
+
+        return null;
+    }
+
+    public void validateBreaks() throws Exception {
+        
+        int grade = 0;
+        
+        int specs = 0, totalSpecs = 0;
+        LinkedList elements, previousTextsO = new LinkedList(), previousTextsR = new LinkedList();
+        Iterator breaks;
+        P pBlock;
+
+        String query = "//w:body/child::*";
+
+        elements = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
+        breaks = getPageBreaks(Verifier.INDEX_ORIGINAL).iterator();
+        while (breaks.hasNext()) {
+            previousTextsO.add(getPreviousToBreak(Verifier.INDEX_ORIGINAL, (P) breaks.next(), elements));
+        }
+
+        elements = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
+        breaks = getPageBreaks(Verifier.INDEX_RESPONSE).iterator();
+        while (breaks.hasNext()) {
+            previousTextsR.add(getPreviousToBreak(Verifier.INDEX_RESPONSE, (P) breaks.next(), elements));
+        }
+        
+        /*for(int i = 0; i < previousTextsO.size(); i++)
+            System.out.println("O: "+previousTextsO.get(i));
+        
+        for(int j = 0; j < previousTextsR.size(); j++)
+            System.out.println("R: "+previousTextsR.get(j));*/
+        
+        totalSpecs++;
+        if(previousTextsO.size() == previousTextsR.size())
+            specs++;
+
+        //boolean found;
+        //Counting similars
+        for (int i = 0; i < previousTextsO.size(); i++) {
+            totalSpecs++;
+            //found = false;
+            for (int j = 0; j < previousTextsR.size(); j++) {
+                if (Helper.shorterVersion(previousTextsO.get(i).toString()).compareTo(Helper.shorterVersion(previousTextsR.get(j).toString())) == 0) {
+                    previousTextsR.remove(j);
+                    specs++;
+                    //found = true;
+                }
+            }
+            /*if(!found)
+               specs--; */
+        }
+
+        //System.out.println(specs + " :: " + totalSpecs);
+        
+        previousTextsO.clear();
+        elements = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
+        breaks = getSectionBreaks(Verifier.INDEX_ORIGINAL).iterator();
+        while (breaks.hasNext()) 
+            previousTextsO.add(getPreviousToSectionBreak(Verifier.INDEX_ORIGINAL, (P) breaks.next(), elements));
+        
+        previousTextsR.clear();
+        elements = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
+        breaks = getSectionBreaks(Verifier.INDEX_RESPONSE).iterator();
+        while (breaks.hasNext())
+            previousTextsR.add(getPreviousToSectionBreak(Verifier.INDEX_RESPONSE, (P) breaks.next(), elements));
+        
+        /*for(int i = 0; i < previousTextsO.size(); i++)
+            System.out.println("O: "+previousTextsO.get(i));
+        
+        for(int j = 0; j < previousTextsR.size(); j++)
+            System.out.println("R: "+previousTextsR.get(j));*/
+        
+        totalSpecs++;
+        if(previousTextsO.size() == previousTextsR.size())
+            specs++;
+        
+        for(int i = 0; i < previousTextsO.size(); i++){
+            totalSpecs++;
+            //found = false;
+            for(int j = 0; j < previousTextsR.size(); j++){
+                if(previousTextsO.get(i).toString().contains(Helper.shorterVersion(previousTextsR.get(j).toString()))) {
+                    previousTextsR.remove(j);
+                    specs++;
+                    //found = true;
+                }
+            }
+            /*if(!found)
+                specs--;*/
+        }
+        
+        //System.out.println(specs+" :: "+totalSpecs);
+        System.out.println("Grading: Page Breaks and Sections");
+
+        if (specs == 0) {
+            grade = 0;
+            System.out.println("\tNone! " + grade);
+        } else {
+            if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_4) {
+                grade += 10;
+                System.out.println("\tMost Specs! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_3) {
+                grade += 8;
+                System.out.println("\t66% - 89%! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_2) {
+                grade += 6;
+                System.out.println("\t40% - 65%! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_1) {
+                grade += 4;
+                System.out.println("\t11% - 39%! +" + grade);
+            } else {
+                grade += 1;
+                System.out.println("\t 0% - 10%! +" + grade);
+            }
+        }
+
+        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BREAK);
+        totalGrade += grade;
+        
     }
 
     public void validate() throws Exception {
@@ -1446,10 +1705,24 @@ public class Verifier {
         validateColumns();
         validateFooter();
         validateBullet();
+        validateBreaks();
+        
+        System.out.println("Total Grade: "+totalGrade+"/"+Verifier.GRADE_TOTAL);
 
 //        showXML();
 //        showFooterXML();
-//        pagecount();
+    }
+
+    private void showXML() throws Exception {
+        //.getStyleDefinitionsPart()
+        System.out.println(wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getXML());
+//        System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getStyleDefinitionsPart().getXML());
+//        
+//        String query = "//w:styleBody";
+//        LinkedList body = getStyleObjectByQuery(Verifier.INDEX_ORIGINAL, query);
+//        body.stream().forEach((obj) -> {
+//            System.out.println(XmlUtils.marshaltoString(obj, true, true));
+//        });
     }
 
     private void showFooterXML() throws Exception {
@@ -1464,28 +1737,5 @@ public class Verifier {
             JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
             System.out.println(part.getXML());
         }
-
-//        List<Relationship> rels = rp.getRelationshipsByType(Namespaces.FOOTER);
-//        Iterator<Relationship> it = rels.iterator();
-//        while (it.hasNext()) {
-//            Relationship rel = it.next();
-//            JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
-//            System.out.println(rel.getId());
-//            System.out.println(part.getContents());
-//        }
     }
-
-    private void showXML() throws Exception {
-        //.getStyleDefinitionsPart()
-        //System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getXML());
-
-        System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getStyleDefinitionsPart().getXML());
-//        
-//        String query = "//w:styleBody";
-//        LinkedList body = getStyleObjectByQuery(Verifier.INDEX_ORIGINAL, query);
-//        body.stream().forEach((obj) -> {
-//            System.out.println(XmlUtils.marshaltoString(obj, true, true));
-//        });
-    }
-
 }
