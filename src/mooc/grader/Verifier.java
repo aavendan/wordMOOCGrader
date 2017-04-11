@@ -7,37 +7,28 @@ package mooc.grader;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBElement;
-import org.apache.xml.utils.XMLStringDefault;
 import org.docx4j.XmlUtils;
 import org.docx4j.dml.CTNonVisualDrawingProps;
 import org.docx4j.dml.picture.Pic;
-import org.docx4j.jaxb.Context;
 import org.docx4j.model.structure.HeaderFooterPolicy;
 import org.docx4j.model.structure.SectionWrapper;
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
 import org.docx4j.openpackaging.parts.JaxbXmlPart;
-import org.docx4j.openpackaging.parts.Part;
-import org.docx4j.openpackaging.parts.PartName;
-import org.docx4j.openpackaging.parts.Parts;
-import org.docx4j.openpackaging.parts.WordprocessingML.EndnotesPart;
 import org.docx4j.openpackaging.parts.WordprocessingML.FooterPart;
-import org.docx4j.openpackaging.parts.WordprocessingML.FootnotesPart;
 import org.docx4j.openpackaging.parts.relationships.Namespaces;
 import org.docx4j.openpackaging.parts.relationships.RelationshipsPart;
-import org.docx4j.org.apache.poi.hpsf.SummaryInformation;
 import org.docx4j.relationships.Relationship;
 import org.docx4j.wml.CTBorder;
 import org.docx4j.wml.FooterReference;
 import org.docx4j.wml.Ftr;
-import org.docx4j.wml.HdrFtrRef;
 import org.docx4j.wml.Lvl;
 import org.docx4j.wml.Numbering;
 import org.docx4j.wml.P;
+import org.docx4j.wml.ParaRPr;
 import org.docx4j.wml.R;
+import org.docx4j.wml.RFonts;
 import org.docx4j.wml.Style;
-import org.docx4j.wml.Text;
 
 /**
  *
@@ -48,16 +39,21 @@ public class Verifier {
     private static final double TOC_THRESHOLD_STYLE = 0.70;
     private static final double TOC_THRESHOLD_HEADINGS = 0.70;
     private static final double TOC_THRESHOLD_ELEMENTSINTOC = 0.40;
+    private static final double COLUMN_THRESHOLD_SAME_PARAGRAPHS = 0.70;
+    private static final double BREAKS_THRESHOLD_SAME_PAGEBREAKS = 0.40;
+    private static final double PARAGRAPH_THRESHOLD_SAME_STYLE = 0.50;
+    //    private static final int NAME_POSITION_BDR = 1;
 
+    //Evaluation limits
     private static final double CD_LIMIT_2 = 0.70;
     private static final double CD_LIMIT_1 = 0.40;
 
     private static final double FOOTNOTE_LIMIT_2 = 0.89;
     private static final double FOOTNOTE_LIMIT_1 = 0.39;
-    
+
     private static final double COLUMN_LIMIT_2 = 0.89;
     private static final double COLUMN_LIMIT_1 = 0.39;
-    
+
     private static final double BDR_LIMIT_4 = 0.10;
     private static final double BDR_LIMIT_3 = 0.39;
     private static final double BDR_LIMIT_2 = 0.65;
@@ -65,20 +61,21 @@ public class Verifier {
 
     private static final double FOOTER_LIMIT_2 = 0.89;
     private static final double FOOTER_LIMIT_1 = 0.39;
-    
+
     private static final double BULLET_LIMIT_4 = 0.89;
     private static final double BULLET_LIMIT_3 = 0.65;
     private static final double BULLET_LIMIT_2 = 0.39;
     private static final double BULLET_LIMIT_1 = 0.10;
-    
+
     private static final double BREAK_LIMIT_4 = 0.89;
     private static final double BREAK_LIMIT_3 = 0.65;
     private static final double BREAK_LIMIT_2 = 0.39;
     private static final double BREAK_LIMIT_1 = 0.10;
-    
-    private static final double COLUMN_MINIMUM_SAME_PARAGRAPHS = 0.70;
-    
-    private static final int NAME_POSITION_BDR = 1;
+
+    private static final double DFORMAT_LIMIT_4 = 0.89;
+    private static final double DFORMAT_LIMIT_3 = 0.65;
+    private static final double DFORMAT_LIMIT_2 = 0.39;
+    private static final double DFORMAT_LIMIT_1 = 0.10;
 
     private static final int MAX_ELEMENTS = 2;
     public static int INDEX_ORIGINAL = 0;
@@ -92,6 +89,7 @@ public class Verifier {
     private static int GRADE_FOOTER = 10;
     private static int GRADE_BULLET = 7;
     private static int GRADE_BREAK = 10;
+    private static int GRADE_DFORMAT = 15;
     private static int GRADE_TOTAL = 100;
 
     private static int FOOTER_FIRST = 0;
@@ -101,7 +99,7 @@ public class Verifier {
     private static WordprocessingMLPackage wordMLPackage[];
     private final String fileName[];
     private final Styler styler;
-    
+
     public int totalGrade = 0;
 
     public Verifier() {
@@ -204,14 +202,16 @@ public class Verifier {
 
     public LinkedList loadHeadings(int index) throws Exception {
         //Styles inherited of Heading's
-        List<Object> hHeading = wordMLPackage[index].getMainDocumentPart().getStyleDefinitionsPart().getJAXBNodesViaXPath("//w:style[w:basedOn[contains(@w:val,'Heading')] or w:name[contains(@w:val,'heading')]]", false);
+//        List<Object> hHeading = wordMLPackage[index].getMainDocumentPart().getStyleDefinitionsPart().getJAXBNodesViaXPath("//w:style[w:basedOn[contains(@w:val,'Heading')] or w:name[contains(@w:val,'heading')]]", false);
+        String query = "//w:style[w:basedOn[contains(@w:val,'Heading')] or w:name[contains(@w:val,'heading')]]";
+        List<Object> hHeading = getStyleObjectByQuery(index, query);
         List<String> styleNames = new LinkedList();
 
         hHeading.stream().forEach((jaxbNode) -> {
             styleNames.add("contains(@w:val,\'" + ((org.docx4j.wml.Style) jaxbNode).getStyleId() + "\')");
         });
         String strStyleNames = String.join(" or ", styleNames);
-        String query = "//w:body/w:p[w:pPr[w:pStyle[" + strStyleNames + "]]]";
+        query = "//w:body/w:p[w:pPr[w:pStyle[" + strStyleNames + "]]]";
 
         LinkedList headings = new LinkedList();
         if (hHeading.size() > 0) {
@@ -225,10 +225,17 @@ public class Verifier {
         return headings;
     }
 
-    public Style getStyleByHeadingName(int index, Object o) throws Exception {
-        String headingName = ((org.docx4j.wml.P) o).getPPr().getPStyle().getVal();
-        List<Object> hHeading = wordMLPackage[index].getMainDocumentPart().getStyleDefinitionsPart().getJAXBNodesViaXPath("//w:style[contains(@w:styleId,'" + headingName + "')]", false);
-        for (Object jaxbNode : hHeading) {
+    public Style getStyleByStyleId(int index, Object o) throws Exception {
+
+        P p = ((org.docx4j.wml.P) o);
+        if (p.getPPr() == null || p.getPPr().getPStyle() == null) {
+            return null;
+        }
+
+        String styleId = p.getPPr().getPStyle().getVal();
+        String query = "//w:style[contains(@w:styleId,'" + styleId + "')]";
+        List<Object> objects = getStyleObjectByQuery(index, query);
+        for (Object jaxbNode : objects) {
             return (org.docx4j.wml.Style) jaxbNode;
         }
         return null;
@@ -241,7 +248,7 @@ public class Verifier {
         if (rDoc.size() > 0) {
             rDoc = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query1);
             if (rDoc.size() > 0) {
-//                System.out.print("\t\tIn doc\n");
+                //System.out.print("\t\tIn doc\n");
                 return 1;
             }
             return 0;
@@ -250,7 +257,7 @@ public class Verifier {
             if (rStyleId.size() > 0) {
                 rStyleId = getStyleObjectByQuery(Verifier.INDEX_RESPONSE, query2);
                 if (rStyleId.size() > 0) {
-//                    System.out.print("\t\tIn Style\n");
+                    //System.out.print("\t\tIn Style\n");
                     return 1;
                 }
                 return 0;
@@ -259,25 +266,50 @@ public class Verifier {
                 if (rBasedOn.size() > 0) {
                     rBasedOn = getStyleObjectByQuery(Verifier.INDEX_RESPONSE, query3);
                     if (rBasedOn.size() > 0) {
-//                        System.out.print("\t\tIn BasedOn\n");
+                        //System.out.print("\t\tIn BasedOn\n");
                         return 1;
                     }
                 }
-//                System.out.print("\t\tNONE\n");
+                //System.out.print("\t\tNONE\n");
                 return 0;
             }
         }
     }
 
-    private boolean checkStyle(Style sOriginal, Style sResponse, P pResponse) throws Exception {
-        int indexHeading = styler.getIndex(sOriginal.getBasedOn().getVal());
-        String heading = styler.getHeadingProperty(indexHeading, "name");
+    private boolean hasListing(P p, Style s) {
+        if(p.getPPr() != null && p.getPPr().getNumPr() != null)
+            return true;
+        if(s.getPPr() != null && s.getPPr().getNumPr() != null)
+            return true;
+        return false;
+    }
 
-        if (Helper.isHeading(heading, sResponse.getBasedOn().getVal(), sResponse.getStyleId())) {
+    private boolean sameHeadingName(Style sOriginal, Style sResponse) throws Exception {
+        return sOriginal.getStyleId().compareTo(sResponse.getStyleId()) == 0
+                || sOriginal.getStyleId().compareTo(sResponse.getBasedOn().getVal()) == 0
+                || sOriginal.getBasedOn().getVal().compareTo(sResponse.getStyleId()) == 0
+                || sOriginal.getBasedOn().getVal().compareTo(sResponse.getBasedOn().getVal()) == 0;
+    }
 
-            String fontname, size, bold, hexcolor, line_spacing, spacing_before, spacing_after;
+    private String getHeadingName(Style sOriginal, Style sResponse) throws Exception {
+        if (sOriginal.getBasedOn().getVal().compareTo(sResponse.getBasedOn().getVal()) == 0 || sOriginal.getStyleId().compareTo(sResponse.getBasedOn().getVal()) == 0) {
+            return sResponse.getBasedOn().getVal();
+        }
+        if (sOriginal.getBasedOn().getVal().compareTo(sResponse.getStyleId()) == 0) {
+            return sResponse.getStyleId();
+        }
+        return sResponse.getStyleId();
+    }
+
+    private boolean checkStyleHeading(Style sOriginal, Style sResponse, P pResponse) throws Exception {
+        String headingName = getHeadingName(sOriginal, sResponse);
+        int indexHeading = styler.getIndex(headingName);
+
+        if (sameHeadingName(sOriginal, sResponse)) {
+
+            String fontname, size, bold, hexcolor, spacing_before, spacing_after;
             String queryd, querys, queryb, query1, query2, query3;
-            int values, check3, check4, check5, check6, check7 = 0, check8 = 0, check9 = 0;
+            int values, check3, check4, check5, check6, check7, check8;
 
             fontname = styler.getHeadingProperty(indexHeading, "fontname");
             size = String.valueOf(Integer.valueOf(styler.getHeadingProperty(indexHeading, "size")) * 2);
@@ -285,7 +317,6 @@ public class Verifier {
             hexcolor = styler.getHeadingProperty(indexHeading, "hexcolor");
             spacing_before = String.valueOf(Integer.valueOf(styler.getHeadingProperty(indexHeading, "spacing_before")) * 20);
             spacing_after = String.valueOf(Integer.valueOf(styler.getHeadingProperty(indexHeading, "spacing_after")) * 20);
-            line_spacing = styler.getHeadingProperty(indexHeading, "line_spacing");
             values = Integer.valueOf(styler.getHeadingProperty(indexHeading, "values"));
 
             //Check in document' style and style part
@@ -296,7 +327,7 @@ public class Verifier {
             query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:rFonts[contains(@w:cs,'" + fontname + "')]]]]";
             query2 = "//w:style[@w:styleId='" + sResponse.getStyleId() + "' and w:rPr[w:rFonts[contains(@w:ascii,'" + fontname + "')]]]";
             query3 = "//w:style[@w:styleId='" + sResponse.getBasedOn().getVal() + "' and w:rPr[w:rFonts[contains(@w:ascii,'" + fontname + "')]]]";
-//            System.out.print("\t\tFont Name:");
+            //System.out.print("\t\tFont Name:");
             check3 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
             queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:sz[@w:val and string-length(@w:val)!=0]]]]";
@@ -306,7 +337,7 @@ public class Verifier {
             query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:sz[contains(@w:val," + size + ")]]]]";
             query2 = "//w:style[@w:styleId='" + sResponse.getStyleId() + "' and w:rPr[w:sz[contains(@w:val," + size + ")]]]";
             query3 = "//w:style[@w:styleId='" + sResponse.getBasedOn().getVal() + "' and w:rPr[w:sz[contains(@w:val," + size + ")]]]";
-//            System.out.print("\t\tFont Size:");
+            //System.out.print("\t\tFont Size:");
             check4 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
             queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:b[not(@*) or w:val='true']]]]";
@@ -316,7 +347,7 @@ public class Verifier {
             query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:b[not(@*)]]]]";
             query2 = "//w:style[@w:styleId='" + sResponse.getStyleId() + "' and w:rPr[w:b[not(@*)]]]";
             query3 = "//w:style[@w:styleId='" + sResponse.getBasedOn().getVal() + "' and w:rPr[w:b[not(@*)]]]";
-//            System.out.print("\t\tBold:");
+            //System.out.print("\t\tBold:");
             check5 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
             queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:color[@w:val]]]]";
@@ -326,7 +357,7 @@ public class Verifier {
             query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:color[ contains(@w:val,'" + hexcolor + "') ]]]]";
             query2 = "//w:style[@w:styleId='" + sResponse.getStyleId() + "' and w:rPr[w:color[ contains(@w:val,'" + hexcolor + "') ]]]";
             query3 = "//w:style[@w:styleId='" + sResponse.getBasedOn().getVal() + "' and w:rPr[w:color[ contains(@w:val,'" + hexcolor + "') ]]]";
-//            System.out.print("\t\tColor:");
+            //System.out.print("\t\tColor:");
             check6 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
             queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[@w:before]]]";
@@ -336,7 +367,7 @@ public class Verifier {
             query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[contains(@w:before,'" + spacing_before + "')]]]";
             query2 = "//w:style[@w:styleId='" + sResponse.getStyleId() + "' and w:pPr[w:spacing[contains(@w:before,'" + spacing_before + "')]]]";
             query3 = "//w:style[@w:styleId='" + sResponse.getBasedOn().getVal() + "' and w:pPr[w:spacing[contains(@w:before,'" + spacing_before + "')]]]";
-//            System.out.print("\t\tSpacing Before:");
+            //System.out.print("\t\tSpacing Before:");
             check7 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
             queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[@w:after]]]";
@@ -346,32 +377,47 @@ public class Verifier {
             query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[contains(@w:after,'" + spacing_after + "')]]]";
             query2 = "//w:style[@w:styleId='" + sResponse.getStyleId() + "' and w:pPr[w:spacing[contains(@w:after,'" + spacing_after + "')]]]";
             query3 = "//w:style[@w:styleId='" + sResponse.getBasedOn().getVal() + "' and w:pPr[w:spacing[contains(@w:after,'" + spacing_after + "')]]]";
-//            System.out.print("\t\tSpacing After:");
+            //System.out.print("\t\tSpacing After:");
             check8 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
+            /*System.out.println("Check3: " + check3);
+             System.out.println("Check4: " + check4);
+             System.out.println("Check5: " + check5);
+             System.out.println("Check6: " + check6);
+             System.out.println("Check7: " + check7);
+             System.out.println("Check8: " + check8);*/
             return (double) (check3 + check4 + check5 + check6 + check7 + check8) / values >= Verifier.TOC_THRESHOLD_STYLE;
         }
 
         return false;
     }
 
-    private boolean checkListing(Style sOriginal, Style sResponse, P pResponse) throws Exception {
-        String query1 = "//w:p[contains(@w14:paraId,'" + pResponse.getParaId() + "') and w:pPr[w:numPr]]";
-        String query2 = "//w:style[contains(@w:styleId,'" + sResponse.getStyleId() + "') and w:pPr[w:numPr]]";
-        String query3 = "//w:style[contains(@w:styleId,'" + sResponse.getBasedOn().getVal() + "') and w:pPr[w:numPr]]";
-//        System.out.print("\t\tListing:");
-        return matchStyle(query1, query2, query3, query1, query2, query3) == 1;
-    }
-
     public void validateTOC() throws Exception {
 
         int grade = 0;
-        LinkedList tocOriginal = loadTOC(Verifier.INDEX_ORIGINAL);
-        LinkedList tocResponse = loadTOC(Verifier.INDEX_RESPONSE);
 
+        LinkedList tocResponse = loadTOC(Verifier.INDEX_RESPONSE);
+        LinkedList tocOriginal = loadTOC(Verifier.INDEX_ORIGINAL);
+
+        /*tocOriginal.stream().forEach(obj -> {
+         javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink> h = (javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink>)obj;
+         System.out.println(Helper.getTextFromP(h.getValue().getContent()));
+         });
+         tocResponse.stream().forEach(obj -> {
+         javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink> h = (javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink>)obj;
+         System.out.println(Helper.getTextFromP(h.getValue().getContent()));
+         });*/
         LinkedList headingsOriginal = loadHeadings(Verifier.INDEX_ORIGINAL);
         LinkedList headingsResponse = loadHeadings(Verifier.INDEX_RESPONSE);
 
+        /*headingsOriginal.stream().forEach(obj -> {
+         P p = (P) obj;
+         System.out.println(Helper.getTextFromP(p.getContent()));
+         });
+         headingsResponse.stream().forEach(obj -> {
+         P p = (P) obj;
+         System.out.println(Helper.getTextFromP(p.getContent()));
+         });*/
         System.out.println("Grading: Table of Contents");
 
         //TOC: exist or not
@@ -416,7 +462,7 @@ public class Verifier {
         }
 
         //Styles: Same headingsOriginal on sResponse file
-        P pResponse;
+        P pResponse, pOriginal;
         String styleName, strOriginal, strResponse;
         Style sOriginal, sResponse;
         int foundStyle = 0, foundListing = 0;
@@ -437,12 +483,15 @@ public class Verifier {
                 if (strOriginal.toLowerCase().trim().compareTo(strResponse.toLowerCase().trim()) == 0) {
 
                     exists = true;
+                    pOriginal = (org.docx4j.wml.P) o;
                     pResponse = (org.docx4j.wml.P) o2;
-                    sOriginal = getStyleByHeadingName(Verifier.INDEX_ORIGINAL, o);
-                    sResponse = getStyleByHeadingName(Verifier.INDEX_RESPONSE, o2);
-                    sameStyle = checkStyle(sOriginal, sResponse, pResponse);
-                    hasListing = checkListing(sOriginal, sResponse, pResponse);
-//                    System.out.println("\t"+Helper.getTextFromP(pResponse.getContent())+" "+pResponse.getPPr().getPStyle().getVal());
+                    sOriginal = getStyleByStyleId(Verifier.INDEX_ORIGINAL, o);
+                    sResponse = getStyleByStyleId(Verifier.INDEX_RESPONSE, o2);
+                    sameStyle = checkStyleHeading(sOriginal, sResponse, pResponse);
+                    //System.out.println("SameStyle: "+sameStyle);
+                    hasListing = hasListing(pOriginal, sOriginal) &&  hasListing(pResponse, sResponse);
+                    //System.out.println("HasListingResponse: "+hasListing(pResponse, sResponse));
+                    //System.out.println("HasListing: "+hasListing);
                     break;
 
                 }
@@ -538,7 +587,7 @@ public class Verifier {
     public void validateFootNote() throws Exception {
 
         int grade = 0;
-        
+
         String query;
         query = "//w:p[w:r[w:rPr[w:rStyle[@w:val='FootnoteReference']]]]";
 
@@ -606,7 +655,7 @@ public class Verifier {
     }
 
     private void validateDropCap() throws Exception {
-        
+
         int grade = 0;
         String query = "//w:p[w:pPr[w:framePr[@w:dropCap]]] | //w:p[w:pPr[w:framePr[@w:dropCap]]]/following-sibling::*[1]";
         LinkedList dropCapOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
@@ -664,7 +713,6 @@ public class Verifier {
         }
 
 //        System.out.println((double) counterDL / capCounterOriginal.doubleValue() + " " + (double) counterD / capCounterOriginal.doubleValue() + " " + (double) counterML / capCounterOriginal.doubleValue() + " " + (double) counterM / capCounterOriginal.doubleValue());
-        
         if ((double) counterDL / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_2) {
             grade += 6;
             System.out.println("\tMost Specs! +" + grade);
@@ -689,14 +737,14 @@ public class Verifier {
     }
 
     private void validateColumns() throws Exception {
-        
+
         int grade = 0;
-        
+
         int specs = 0, totalSpecs = 0;
         String nquery, textO, textR;
         int countDifferentText;
         P pnO, pnR, pO1, pO2, pR1, pR2;
-        
+
         String query = "//w:p[w:pPr[w:sectPr[w:cols[@w:num]]]] | //w:p[w:pPr[w:sectPr[w:cols[@w:num]]]]/preceding-sibling::w:p[w:pPr[w:sectPr[w:cols]]][1]";
         LinkedList dropCapOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList dropCapResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
@@ -755,7 +803,7 @@ public class Verifier {
 //                System.out.println((double) similars.doubleValue() / linsideR.size());
                 //Similar columns/total > threshold
                 //If and only if they're similars paragraphs then check others specs
-                if ((double) similars.doubleValue() / linsideR.size() >= Verifier.COLUMN_MINIMUM_SAME_PARAGRAPHS) {
+                if ((double) similars.doubleValue() / linsideR.size() >= Verifier.COLUMN_THRESHOLD_SAME_PARAGRAPHS) {
 
                     found = true;
 
@@ -815,9 +863,9 @@ public class Verifier {
     }
 
     private void validateBdr() throws Exception {
-        
+
         int grade = 0;
-        
+
         String query = "//w:p[w:pPr[w:pBdr]]";
         LinkedList txtBdrOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList txtBdrResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
@@ -854,7 +902,8 @@ public class Verifier {
                 txtR = Helper.getTextFromP(pR.getContent());
 
                 //Found
-                if (txtO.trim().compareTo(txtR.trim()) == 0 || (i.intValue() == j && i.intValue() == Verifier.NAME_POSITION_BDR && txtR.length() > 0)) {
+                //CHECK: if (txtO.trim().compareTo(txtR.trim()) == 0 || (i.intValue() == j && i.intValue() == Verifier.NAME_POSITION_BDR && txtR.length() > 0)) {
+                if (txtO.trim().compareTo(txtR.trim()) == 0 && txtR.length() > 0) {
                     countEqualTxtR.getAndIncrement();
 
                     //Shading
@@ -1165,7 +1214,7 @@ public class Verifier {
     public void validateFooter() throws Exception {
 
         int grade = 0;
-        
+
         int specs = 0, totalSpecs = 0;
         boolean hasDefault = false, hasEven = false, hasFirst = false;
 
@@ -1368,9 +1417,9 @@ public class Verifier {
     }
 
     public void validateBullet() throws Exception {
-        
+
         int grade = 0;
-        
+
         int specs = 0, totalSpecs = 0;
         int ilvlO = -1, ilvlR = -1, numIdO = -1, numIdR = -1;
         String contentO = "", contentR = "";
@@ -1555,7 +1604,6 @@ public class Verifier {
         }
 
         //System.out.println("RsidR " + p.getParaId() + " curent position: " + i);
-
         //looking for previousTextsO with any content
         for (int j = i - 1; j >= 0; j--) {
             //check for text
@@ -1578,9 +1626,9 @@ public class Verifier {
     }
 
     public void validateBreaks() throws Exception {
-        
+
         int grade = 0;
-        
+
         int specs = 0, totalSpecs = 0;
         LinkedList elements, previousTextsO = new LinkedList(), previousTextsR = new LinkedList();
         Iterator breaks;
@@ -1599,16 +1647,16 @@ public class Verifier {
         while (breaks.hasNext()) {
             previousTextsR.add(getPreviousToBreak(Verifier.INDEX_RESPONSE, (P) breaks.next(), elements));
         }
-        
+
         /*for(int i = 0; i < previousTextsO.size(); i++)
-            System.out.println("O: "+previousTextsO.get(i));
+         System.out.println("O: "+previousTextsO.get(i));
         
-        for(int j = 0; j < previousTextsR.size(); j++)
-            System.out.println("R: "+previousTextsR.get(j));*/
-        
+         for(int j = 0; j < previousTextsR.size(); j++)
+         System.out.println("R: "+previousTextsR.get(j));*/
         totalSpecs++;
-        if(previousTextsO.size() == previousTextsR.size())
+        if (previousTextsO.size() == previousTextsR.size()) {
             specs++;
+        }
 
         //boolean found;
         //Counting similars
@@ -1623,47 +1671,51 @@ public class Verifier {
                 }
             }
             /*if(!found)
-               specs--; */
+             specs--; */
         }
 
         //System.out.println(specs + " :: " + totalSpecs);
-        
         previousTextsO.clear();
         elements = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         breaks = getSectionBreaks(Verifier.INDEX_ORIGINAL).iterator();
-        while (breaks.hasNext()) 
+        while (breaks.hasNext()) {
             previousTextsO.add(getPreviousToSectionBreak(Verifier.INDEX_ORIGINAL, (P) breaks.next(), elements));
-        
+        }
+
         previousTextsR.clear();
         elements = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
         breaks = getSectionBreaks(Verifier.INDEX_RESPONSE).iterator();
-        while (breaks.hasNext())
+        while (breaks.hasNext()) {
             previousTextsR.add(getPreviousToSectionBreak(Verifier.INDEX_RESPONSE, (P) breaks.next(), elements));
-        
+        }
+
         /*for(int i = 0; i < previousTextsO.size(); i++)
-            System.out.println("O: "+previousTextsO.get(i));
+         System.out.println("O: "+previousTextsO.get(i));
         
-        for(int j = 0; j < previousTextsR.size(); j++)
-            System.out.println("R: "+previousTextsR.get(j));*/
-        
+         for(int j = 0; j < previousTextsR.size(); j++)
+         System.out.println("R: "+previousTextsR.get(j));*/
         totalSpecs++;
-        if(previousTextsO.size() == previousTextsR.size())
+        if (previousTextsO.size() == previousTextsR.size()) {
             specs++;
-        
-        for(int i = 0; i < previousTextsO.size(); i++){
-            totalSpecs++;
+        }
+
+        int countSimilarities = 0, size = previousTextsO.size();
+        totalSpecs++;
+        for (int i = 0; i < previousTextsO.size(); i++) {
             //found = false;
-            for(int j = 0; j < previousTextsR.size(); j++){
-                if(previousTextsO.get(i).toString().contains(Helper.shorterVersion(previousTextsR.get(j).toString()))) {
+            for (int j = 0; j < previousTextsR.size(); j++) {
+                if (previousTextsO.get(i).toString().contains(Helper.shorterVersion(previousTextsR.get(j).toString()))) {
                     previousTextsR.remove(j);
-                    specs++;
+                    countSimilarities++;
                     //found = true;
                 }
             }
             /*if(!found)
-                specs--;*/
+             specs--;*/
         }
-        
+
+        specs = ((double) countSimilarities / size >= Verifier.BREAKS_THRESHOLD_SAME_PAGEBREAKS) ? specs + 1 : specs;
+
         //System.out.println(specs+" :: "+totalSpecs);
         System.out.println("Grading: Page Breaks and Sections");
 
@@ -1691,7 +1743,116 @@ public class Verifier {
 
         System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BREAK);
         totalGrade += grade;
-        
+
+    }
+
+    public int chechStyleParagraph(P pResponse, Style sResponse) throws Exception {
+
+        String fontname, size, spacing_before, spacing_after;
+        String queryd, querys, queryb, query1, query2, query3;
+        int values, check3, check4, check7, check8;
+
+        fontname = styler.getParagraphProperty("fontname");
+        size = String.valueOf(Integer.valueOf(styler.getParagraphProperty("size")) * 2);
+        spacing_before = String.valueOf(Integer.valueOf(styler.getParagraphProperty("spacing_before")) * 20);
+        spacing_after = String.valueOf(Integer.valueOf(styler.getParagraphProperty("spacing_after")) * 20);
+        values = Integer.valueOf(styler.getParagraphProperty("values"));
+
+        //Check in document' style and style part
+        queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:rFonts[@w:cs and string-length(@w:cs)!=0]]]]";
+        querys = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:rPr[w:rFonts[@w:ascii and string-length(@w:ascii)!=0]]]";
+        queryb = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:rPr[w:rFonts[@w:ascii and string-length(@w:ascii)!=0]]]";
+
+        query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:rFonts[contains(@w:cs,'" + fontname + "')]]]]";
+        query2 = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:rPr[w:rFonts[contains(@w:ascii,'" + fontname + "')]]]";
+        query3 = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:rPr[w:rFonts[contains(@w:ascii,'" + fontname + "')]]]";
+        //System.out.print("\t\tFont Name: "+fontname+"\n");
+        check3 = matchStyle(query1, query2, query3, queryd, querys, queryb);
+
+        queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:sz[@w:val and string-length(@w:val)!=0]]]]";
+        querys = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:rPr[w:sz[@w:val and string-length(@w:val)!=0]]]";
+        queryb = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:rPr[w:sz[@w:val and string-length(@w:val)!=0]]]";
+
+        query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:rPr[w:sz[contains(@w:val," + size + ")]]]]";
+        query2 = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:rPr[w:sz[contains(@w:val," + size + ")]]]";
+        query3 = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:rPr[w:sz[contains(@w:val," + size + ")]]]";
+        //System.out.print("\t\tFont Size: "+size+"\n");
+        check4 = matchStyle(query1, query2, query3, queryd, querys, queryb);
+
+        queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[@w:before]]]";
+        querys = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:pPr[w:spacing[@w:before]]]";
+        queryb = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:pPr[w:spacing[@w:before]]]";
+
+        query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[contains(@w:before,'" + spacing_before + "')]]]";
+        query2 = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:pPr[w:spacing[contains(@w:before,'" + spacing_before + "')]]]";
+        query3 = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:pPr[w:spacing[contains(@w:before,'" + spacing_before + "')]]]";
+        //System.out.print("\t\tSpacing Before: "+spacing_before+"\n");
+        check7 = matchStyle(query1, query2, query3, queryd, querys, queryb);
+
+        queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[@w:after]]]";
+        querys = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:pPr[w:spacing[@w:after]]]";
+        queryb = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:pPr[w:spacing[@w:after]]]";
+
+        query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[contains(@w:after,'" + spacing_after + "')]]]";
+        query2 = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:pPr[w:spacing[contains(@w:after,'" + spacing_after + "')]]]";
+        query3 = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:pPr[w:spacing[contains(@w:after,'" + spacing_after + "')]]]";
+        //System.out.print("\t\tSpacing After: "+spacing_after+"\n");
+        check8 = matchStyle(query1, query2, query3, queryd, querys, queryb);
+
+        return ((double) (check3 + check4 + check7 + check8) / values) >= Verifier.PARAGRAPH_THRESHOLD_SAME_STYLE ? 1 : 0;
+    }
+
+    public void validateFormat() throws Exception {
+
+        int grade = 0;
+
+        LinkedList elementsR;
+        P pElementR;
+        Style sResponse;
+
+        String query = "//w:p[.//w:t and not(.//w:hyperlink) and not(.//w:bookmarkStart) and not(ancestor::w:sdtContent) and not(.//w:pPr[w:framePr[@w:dropCap]])]";
+        elementsR = (getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query));
+
+        int specs = 0, totalSpecs = 0;
+
+        // 0 - Title
+        // 1 - Name
+        for (int i = 2; i < elementsR.size(); i++) {
+            pElementR = (P) elementsR.get(i);
+            sResponse = getStyleByStyleId(Verifier.INDEX_RESPONSE, pElementR);
+
+            totalSpecs++;
+            specs += chechStyleParagraph(pElementR, sResponse);
+        }
+
+        //System.out.println(specs+" :: "+totalSpecs);
+        System.out.println("Grading: Document format");
+
+        if (specs == 0) {
+            grade = 0;
+            System.out.println("\tNone! " + grade);
+        } else {
+            if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_4) {
+                grade += 15;
+                System.out.println("\tMost Specs! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_3) {
+                grade += 13;
+                System.out.println("\t66% - 89%! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_2) {
+                grade += 10;
+                System.out.println("\t40% - 65%! +" + grade);
+            } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_1) {
+                grade += 6;
+                System.out.println("\t11% - 39%! +" + grade);
+            } else {
+                grade += 2;
+                System.out.println("\t 0% - 10%! +" + grade);
+            }
+        }
+
+        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_DFORMAT);
+        totalGrade += grade;
+
     }
 
     public void validate() throws Exception {
@@ -1706,23 +1867,16 @@ public class Verifier {
         validateFooter();
         validateBullet();
         validateBreaks();
-        
-        System.out.println("Total Grade: "+totalGrade+"/"+Verifier.GRADE_TOTAL);
+        validateFormat();
+        System.out.println("Total Grade: " + totalGrade + "/" + Verifier.GRADE_TOTAL);
+    }
 
-//        showXML();
-//        showFooterXML();
+    private void showStyle() throws Exception {
+        System.out.println(wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getStyleDefinitionsPart().getXML());
     }
 
     private void showXML() throws Exception {
-        //.getStyleDefinitionsPart()
         System.out.println(wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getXML());
-//        System.out.println(wordMLPackage[Verifier.INDEX_ORIGINAL].getMainDocumentPart().getStyleDefinitionsPart().getXML());
-//        
-//        String query = "//w:styleBody";
-//        LinkedList body = getStyleObjectByQuery(Verifier.INDEX_ORIGINAL, query);
-//        body.stream().forEach((obj) -> {
-//            System.out.println(XmlUtils.marshaltoString(obj, true, true));
-//        });
     }
 
     private void showFooterXML() throws Exception {
@@ -1738,4 +1892,5 @@ public class Verifier {
             System.out.println(part.getXML());
         }
     }
+
 }

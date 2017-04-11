@@ -9,6 +9,9 @@ import java.util.Properties;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -19,8 +22,26 @@ public class Styler {
     public static String headingNames[];
     public static int MAX_HEADINGS = 2;
     private static Properties heading[];
+    private static Properties paragraph;
 
     public Styler() {
+        loadTextStyle();
+        loadHeadingsStyle();
+    }
+    
+    public void loadTextStyle() {
+        try {
+            FileInputStream input = new FileInputStream("paragraphs.properties");
+            paragraph = new Properties();
+            paragraph.load(input);
+        } catch (FileNotFoundException ex) {
+            ex.printStackTrace();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+    
+    public void loadHeadingsStyle() {
         FileInputStream input[] = new FileInputStream[MAX_HEADINGS];
         heading = new Properties[MAX_HEADINGS];
         headingNames = new String[MAX_HEADINGS];
@@ -50,6 +71,10 @@ public class Styler {
             }
 
         }
+    }
+    
+    public String getParagraphProperty(String key) {
+        return this.paragraph.getProperty(key);
     }
 
     public String getHeadingProperty(int id, String key) {
