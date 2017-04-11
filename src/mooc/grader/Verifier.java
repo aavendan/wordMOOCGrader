@@ -96,6 +96,10 @@ public class Verifier {
     private static int FOOTER_DEFAULT = 1;
     private static int FOOTER_EVEN = 2;
 
+    public static String MULTIPLE = "Múltiple";
+    public static String SINGLE_SPACING = "240";
+    public static String MULTIPLE_SPACING = "720";
+
     private static WordprocessingMLPackage wordMLPackage[];
     private final String fileName[];
     private final Styler styler;
@@ -277,10 +281,12 @@ public class Verifier {
     }
 
     private boolean hasListing(P p, Style s) {
-        if(p.getPPr() != null && p.getPPr().getNumPr() != null)
+        if (p.getPPr() != null && p.getPPr().getNumPr() != null) {
             return true;
-        if(s.getPPr() != null && s.getPPr().getNumPr() != null)
+        }
+        if (s.getPPr() != null && s.getPPr().getNumPr() != null) {
             return true;
+        }
         return false;
     }
 
@@ -301,15 +307,19 @@ public class Verifier {
         return sResponse.getStyleId();
     }
 
+    public static boolean isMultiple(String line_spacing) {
+        return line_spacing.compareTo(MULTIPLE) == 0;
+    }
+
     private boolean checkStyleHeading(Style sOriginal, Style sResponse, P pResponse) throws Exception {
         String headingName = getHeadingName(sOriginal, sResponse);
         int indexHeading = styler.getIndex(headingName);
 
         if (sameHeadingName(sOriginal, sResponse)) {
 
-            String fontname, size, bold, hexcolor, spacing_before, spacing_after;
+            String fontname, size, bold, hexcolor, spacing_before, spacing_after, line_spacing;
             String queryd, querys, queryb, query1, query2, query3;
-            int values, check3, check4, check5, check6, check7, check8;
+            int values, check3, check4, check5, check6, check7, check8, check9;
 
             fontname = styler.getHeadingProperty(indexHeading, "fontname");
             size = String.valueOf(Integer.valueOf(styler.getHeadingProperty(indexHeading, "size")) * 2);
@@ -317,6 +327,7 @@ public class Verifier {
             hexcolor = styler.getHeadingProperty(indexHeading, "hexcolor");
             spacing_before = String.valueOf(Integer.valueOf(styler.getHeadingProperty(indexHeading, "spacing_before")) * 20);
             spacing_after = String.valueOf(Integer.valueOf(styler.getHeadingProperty(indexHeading, "spacing_after")) * 20);
+            line_spacing = styler.getHeadingProperty(indexHeading, "line_spacing");
             values = Integer.valueOf(styler.getHeadingProperty(indexHeading, "values"));
 
             //Check in document' style and style part
@@ -380,13 +391,29 @@ public class Verifier {
             //System.out.print("\t\tSpacing After:");
             check8 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
+            String value_line_spacing = Verifier.SINGLE_SPACING;
+            if (Verifier.isMultiple(line_spacing)) {
+                value_line_spacing = MULTIPLE_SPACING;
+            }
+
+            queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[@w:line]]]";
+            querys = "//w:style[@w:styleId='" + sResponse.getStyleId() + "' and w:pPr[w:spacing[@w:line]]]";
+            queryb = "//w:style[@w:styleId='" + sResponse.getBasedOn().getVal() + "' and w:pPr[w:spacing[@w:line]]]";
+
+            query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[contains(@w:line,'" + value_line_spacing + "')]]]";
+            query2 = "//w:style[@w:styleId='" + sResponse.getStyleId() + "' and w:pPr[w:spacing[contains(@w:line,'" + value_line_spacing + "')]]]";
+            query3 = "//w:style[@w:styleId='" + sResponse.getBasedOn().getVal() + "' and w:pPr[w:spacing[contains(@w:line,'" + value_line_spacing + "')]]]";
+            //System.out.print("\t\tLine Spacing:");
+            check9 = matchStyle(query1, query2, query3, queryd, querys, queryb);
+
             /*System.out.println("Check3: " + check3);
              System.out.println("Check4: " + check4);
              System.out.println("Check5: " + check5);
              System.out.println("Check6: " + check6);
              System.out.println("Check7: " + check7);
-             System.out.println("Check8: " + check8);*/
-            return (double) (check3 + check4 + check5 + check6 + check7 + check8) / values >= Verifier.TOC_THRESHOLD_STYLE;
+             System.out.println("Check8: " + check8);
+             System.out.println("Check9: " + check9);*/
+            return (double) (check3 + check4 + check5 + check6 + check7 + check8 + check9) / values >= Verifier.TOC_THRESHOLD_STYLE;
         }
 
         return false;
@@ -489,7 +516,7 @@ public class Verifier {
                     sResponse = getStyleByStyleId(Verifier.INDEX_RESPONSE, o2);
                     sameStyle = checkStyleHeading(sOriginal, sResponse, pResponse);
                     //System.out.println("SameStyle: "+sameStyle);
-                    hasListing = hasListing(pOriginal, sOriginal) &&  hasListing(pResponse, sResponse);
+                    hasListing = hasListing(pOriginal, sOriginal) && hasListing(pResponse, sResponse);
                     //System.out.println("HasListingResponse: "+hasListing(pResponse, sResponse));
                     //System.out.println("HasListing: "+hasListing);
                     break;
@@ -1748,14 +1775,15 @@ public class Verifier {
 
     public int chechStyleParagraph(P pResponse, Style sResponse) throws Exception {
 
-        String fontname, size, spacing_before, spacing_after;
+        String fontname, size, spacing_before, spacing_after, line_spacing;
         String queryd, querys, queryb, query1, query2, query3;
-        int values, check3, check4, check7, check8;
+        int values, check3, check4, check7, check8, check9;
 
         fontname = styler.getParagraphProperty("fontname");
         size = String.valueOf(Integer.valueOf(styler.getParagraphProperty("size")) * 2);
         spacing_before = String.valueOf(Integer.valueOf(styler.getParagraphProperty("spacing_before")) * 20);
         spacing_after = String.valueOf(Integer.valueOf(styler.getParagraphProperty("spacing_after")) * 20);
+        line_spacing = styler.getParagraphProperty("line_spacing");
         values = Integer.valueOf(styler.getParagraphProperty("values"));
 
         //Check in document' style and style part
@@ -1799,7 +1827,22 @@ public class Verifier {
         //System.out.print("\t\tSpacing After: "+spacing_after+"\n");
         check8 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
-        return ((double) (check3 + check4 + check7 + check8) / values) >= Verifier.PARAGRAPH_THRESHOLD_SAME_STYLE ? 1 : 0;
+        String value_line_spacing = Verifier.SINGLE_SPACING;
+        if (Verifier.isMultiple(line_spacing)) {
+            value_line_spacing = MULTIPLE_SPACING;
+        }
+
+        queryd = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[@w:line]]]";
+        querys = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:pPr[w:spacing[@w:line]]]";
+        queryb = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:pPr[w:spacing[@w:line]]]";
+
+        query1 = "//w:p[@w14:paraId='" + pResponse.getParaId() + "' and w:pPr[w:spacing[contains(@w:line,'" + value_line_spacing + "')]]]";
+        query2 = "//w:style[@w:styleId='" + ((sResponse != null) ? sResponse.getStyleId() : "") + "' and w:pPr[w:spacing[contains(@w:line,'" + value_line_spacing + "')]]]";
+        query3 = "//w:style[@w:styleId='" + ((sResponse != null && sResponse.getBasedOn() != null) ? sResponse.getBasedOn().getVal() : "") + "' and w:pPr[w:spacing[contains(@w:line,'" + value_line_spacing + "')]]]";
+        //System.out.print("\t\tLine Spacing:");
+        check9 = matchStyle(query1, query2, query3, queryd, querys, queryb);
+
+        return ((double) (check3 + check4 + check7 + check8 + check9) / values) >= Verifier.PARAGRAPH_THRESHOLD_SAME_STYLE ? 1 : 0;
     }
 
     public void validateFormat() throws Exception {
@@ -1811,7 +1854,7 @@ public class Verifier {
         Style sResponse;
 
         String query = "//w:p[.//w:t and not(.//w:hyperlink) and not(.//w:bookmarkStart) and not(ancestor::w:sdtContent) and not(.//w:pPr[w:framePr[@w:dropCap]])]";
-        elementsR = (getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query));
+        elementsR = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
 
         int specs = 0, totalSpecs = 0;
 
@@ -1869,6 +1912,16 @@ public class Verifier {
         validateBreaks();
         validateFormat();
         System.out.println("Total Grade: " + totalGrade + "/" + Verifier.GRADE_TOTAL);
+
+    }
+
+    private void saveFiles() throws Exception {
+        java.io.FileWriter fw = new java.io.FileWriter("document.xml");
+        fw.write(wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getXML());
+        fw.close();
+        fw = new java.io.FileWriter("style.xml");
+        fw.write(wordMLPackage[Verifier.INDEX_RESPONSE].getMainDocumentPart().getStyleDefinitionsPart().getXML());
+        fw.close();
     }
 
     private void showStyle() throws Exception {

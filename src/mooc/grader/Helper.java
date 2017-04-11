@@ -17,7 +17,7 @@ import org.docx4j.wml.Text;
  * @author aavendan
  */
 public class Helper {
-
+    
     public static String getTextFromR(List<Object> lp) {
         String str = "";
 
@@ -183,6 +183,8 @@ public class Helper {
            return toString.substring(0, 10);
        return toString;
     }
+
+    
 }
 
 class FooterResume {
