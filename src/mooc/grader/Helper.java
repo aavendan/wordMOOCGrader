@@ -17,7 +17,7 @@ import org.docx4j.wml.Text;
  * @author aavendan
  */
 public class Helper {
-    
+
     public static String getTextFromR(List<Object> lp) {
         String str = "";
 
@@ -64,9 +64,12 @@ public class Helper {
             text = new String();
             Iterator<Object> it = content.iterator();
             while (it.hasNext()) {
-                P p = (org.docx4j.wml.P) it.next();
-                if (p.getPPr().getFramePr() == null) {
-                    text += getTextFromP(p.getContent());
+                Object obj = it.next();
+                if (obj instanceof org.docx4j.wml.P) {
+                    P p = (org.docx4j.wml.P) obj;
+                    if (p.getPPr().getFramePr() == null) {
+                        text += getTextFromP(p.getContent());
+                    }
                 }
             }
         }
@@ -87,9 +90,12 @@ public class Helper {
             text = new String();
             Iterator<Object> it = content.iterator();
             while (it.hasNext()) {
-                P p = (org.docx4j.wml.P) it.next();
-                if (p.getPPr().getFramePr() != null) {
-                    text += getTextFromP(p.getContent());
+                Object obj = it.next();
+                if (obj instanceof org.docx4j.wml.P) {
+                    P p = (org.docx4j.wml.P) obj;
+                    if (p.getPPr().getFramePr() != null) {
+                        text += getTextFromP(p.getContent());
+                    }
                 }
             }
 
@@ -179,12 +185,12 @@ public class Helper {
     }
 
     public static String shorterVersion(String toString) {
-       if(toString.length() > 10)
-           return toString.substring(0, 10);
-       return toString;
+        if (toString.length() > 15) {
+            return toString.substring(0, 15);
+        }
+        return toString;
     }
 
-    
 }
 
 class FooterResume {

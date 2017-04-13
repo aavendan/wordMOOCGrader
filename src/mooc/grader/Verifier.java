@@ -104,9 +104,13 @@ public class Verifier {
     private final String fileName[];
     private final Styler styler;
 
-    public int totalGrade = 0;
+    public int totalGrade;
+    public LinkedList grades;
+    public java.io.FileWriter fwIndividual,fwGrupal;
 
     public Verifier() {
+        totalGrade = 0;
+        grades = new LinkedList();
         wordMLPackage = new WordprocessingMLPackage[Verifier.MAX_ELEMENTS];
         fileName = new String[Verifier.MAX_ELEMENTS];
         styler = new Styler();
@@ -177,9 +181,9 @@ public class Verifier {
 
 //        JaxbXmlPart<org.docx4j.wml.Ftr> jpart = (JaxbXmlPart) rp2.getPart(rel);
 //        Ftr ftr = jpart.getContents();
-//        System.out.println(id);
-//        System.out.println(jpart.getXML());
-//        System.out.println(Helper.getTextFromP(jpart.getContents().getContent()));
+//        writeReport(id);
+//        writeReport(jpart.getXML());
+//        writeReport(Helper.getTextFromP(jpart.getContents().getContent()));
 //
 //        return null;
     }
@@ -406,13 +410,13 @@ public class Verifier {
             //System.out.print("\t\tLine Spacing:");
             check9 = matchStyle(query1, query2, query3, queryd, querys, queryb);
 
-            /*System.out.println("Check3: " + check3);
-             System.out.println("Check4: " + check4);
-             System.out.println("Check5: " + check5);
-             System.out.println("Check6: " + check6);
-             System.out.println("Check7: " + check7);
-             System.out.println("Check8: " + check8);
-             System.out.println("Check9: " + check9);*/
+            /*writeReport("Check3: " + check3);
+             writeReport("Check4: " + check4);
+             writeReport("Check5: " + check5);
+             writeReport("Check6: " + check6);
+             writeReport("Check7: " + check7);
+             writeReport("Check8: " + check8);
+             writeReport("Check9: " + check9);*/
             return (double) (check3 + check4 + check5 + check6 + check7 + check8 + check9) / values >= Verifier.TOC_THRESHOLD_STYLE;
         }
 
@@ -428,29 +432,29 @@ public class Verifier {
 
         /*tocOriginal.stream().forEach(obj -> {
          javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink> h = (javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink>)obj;
-         System.out.println(Helper.getTextFromP(h.getValue().getContent()));
+         writeReport(Helper.getTextFromP(h.getValue().getContent()));
          });
          tocResponse.stream().forEach(obj -> {
          javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink> h = (javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink>)obj;
-         System.out.println(Helper.getTextFromP(h.getValue().getContent()));
+         writeReport(Helper.getTextFromP(h.getValue().getContent()));
          });*/
         LinkedList headingsOriginal = loadHeadings(Verifier.INDEX_ORIGINAL);
         LinkedList headingsResponse = loadHeadings(Verifier.INDEX_RESPONSE);
 
         /*headingsOriginal.stream().forEach(obj -> {
          P p = (P) obj;
-         System.out.println(Helper.getTextFromP(p.getContent()));
+         writeReport(Helper.getTextFromP(p.getContent()));
          });
          headingsResponse.stream().forEach(obj -> {
          P p = (P) obj;
-         System.out.println(Helper.getTextFromP(p.getContent()));
+         writeReport(Helper.getTextFromP(p.getContent()));
          });*/
-        System.out.println("Grading: Table of Contents");
+        writeReport("Grading: Table of Contents");
 
         //TOC: exist or not
         if (tocResponse.size() > 0) {
-            grade = 5;
-            System.out.println("\tHas TOC +5");
+            grade += 5;
+            writeReport("\tHas TOC +5");
 
             String tocRElement, tocOElement;
             int sameInOriginal = 0, notHere = 0, missing = 0, totalTOC;
@@ -478,14 +482,15 @@ public class Verifier {
 
             if ((double) totalTOC / tocOriginal.size() >= Verifier.TOC_THRESHOLD_ELEMENTSINTOC) {
                 grade += 10;
-                System.out.println("\tMost elements in TOC! +10");
+                writeReport("\tMost elements in TOC! +10");
             } else {
                 grade += 3;
-                System.out.println("\tFew elements in TOC +3");
+                writeReport("\tFew elements in TOC +3");
             }
 
         } else {
-            System.out.println("\tWithout TOC +0");
+            grade += 0;
+            writeReport("\tWithout TOC +0");
         }
 
         //Styles: Same headingsOriginal on sResponse file
@@ -515,10 +520,10 @@ public class Verifier {
                     sOriginal = getStyleByStyleId(Verifier.INDEX_ORIGINAL, o);
                     sResponse = getStyleByStyleId(Verifier.INDEX_RESPONSE, o2);
                     sameStyle = checkStyleHeading(sOriginal, sResponse, pResponse);
-                    //System.out.println("SameStyle: "+sameStyle);
+                    //writeReport("SameStyle: "+sameStyle);
                     hasListing = hasListing(pOriginal, sOriginal) && hasListing(pResponse, sResponse);
-                    //System.out.println("HasListingResponse: "+hasListing(pResponse, sResponse));
-                    //System.out.println("HasListing: "+hasListing);
+                    //writeReport("HasListingResponse: "+hasListing(pResponse, sResponse));
+                    //writeReport("HasListing: "+hasListing);
                     break;
 
                 }
@@ -536,20 +541,21 @@ public class Verifier {
         //Correct Style
         if ((double) foundStyle / headingsOriginal.size() >= Verifier.TOC_THRESHOLD_HEADINGS) {
             grade += 5;
-            System.out.println("\tMost with correct styles! +5");
+            writeReport("\tMost with correct styles! +5");
         } else {
-            System.out.println("\tFew headings with correct styles +0");
+            writeReport("\tFew headings with correct styles +0");
         }
 
         //Correct Listing
         if ((double) foundListing / headingsOriginal.size() >= Verifier.TOC_THRESHOLD_HEADINGS) {
             grade += 5;
-            System.out.println("\tMost with correct listing! +5");
+            writeReport("\tMost with correct listing! +5");
         } else {
-            System.out.println("\tFew headings with correct listing +0");
+            writeReport("\tFew headings with correct listing +0");
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_TOC);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_TOC);
+        grades.addFirst(grade);
         totalGrade += grade;
     }
 
@@ -627,8 +633,6 @@ public class Verifier {
         int countKeyOriginal = hashOriginal.keySet().size();
         int countKeyResponse = hashResponse.keySet().size();
 
-        System.out.println("Grading: Footnotes");
-
         int count_specs = 0;
         double total_specs = 0;
         boolean sameWords = true, sameText = true;
@@ -663,32 +667,32 @@ public class Verifier {
             count_specs++;
         }
 
+        writeReport("Grading: Footnotes");
+
         if ((double) count_specs / total_specs > Verifier.FOOTNOTE_LIMIT_2) {
-            grade = 7;
-            System.out.println("\tMost Specs! +" + grade);
+            grade += 7;
+            writeReport("\tMost Specs! +" + grade);
         } else if ((double) count_specs / total_specs >= Verifier.FOOTNOTE_LIMIT_1) {
-            grade = 4;
-            System.out.println("\t40-89% Specs! +" + grade);
+            grade += 4;
+            writeReport("\t40-89% Specs! +" + grade);
         } else if ((double) count_specs / total_specs > 0 && (double) count_specs / total_specs < Verifier.FOOTNOTE_LIMIT_1) {
-            grade = 1;
-            System.out.println("\t 0-39% Specs! +" + grade);
-        } else {
-            grade = 0;
-            System.out.println("\tNone! +" + grade);
+            grade += 1;
+            writeReport("\t 0-39% Specs! +" + grade);
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTNOTE);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTNOTE);
+        grades.addLast(grade);
         totalGrade += grade;
     }
 
     private void validateDropCap() throws Exception {
 
-        int grade = 0;
-        String query = "//w:p[w:pPr[w:framePr[@w:dropCap]]] | //w:p[w:pPr[w:framePr[@w:dropCap]]]/following-sibling::*[1]";
+        int grade = 0;  
+        String query = "//w:p[w:pPr[w:framePr[@w:dropCap]]] | //w:p[w:pPr[w:framePr[@w:dropCap]]]/following-sibling::w:p[1]";
         LinkedList dropCapOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList dropCapResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
 
-        System.out.println("Grading: Capital Letters");
+        writeReport("Grading: Capital Letters");
 
         AtomicInteger capCounterOriginal = new AtomicInteger(0);
 
@@ -707,19 +711,21 @@ public class Verifier {
             rOp = (P) it1.next();
             capR = Helper.getTextFromP(((P) rOp).getContent()).trim();
             rOv = (P) it1.next();
-            txtR = Helper.getTextFromP(((P) rOv).getContent()).substring(0, 20).trim();
+            //txtR = Helper.getTextFromP(((P) rOv).getContent()).substring(0, 20).trim();
+            txtR = Helper.shorterVersion(Helper.getTextFromP(((P) rOv).getContent()).trim());
 
-//            System.out.println(rOp.getPPr().getFramePr().getDropCap().value()+" "+ capR+" "+txtR);
+//            writeReport(rOp.getPPr().getFramePr().getDropCap().value()+" "+ capR+" "+txtR);
             for (Iterator it2 = dropCapOriginal.iterator(); it2.hasNext();) {
                 pOp = (P) it2.next();
                 capO = Helper.getTextFromP(((P) pOp).getContent()).trim();
                 pOv = (P) it2.next();
-                txtO = Helper.getTextFromP(((P) pOv).getContent()).substring(0, 20).trim();
+                //txtO = Helper.getTextFromP(((P) pOv).getContent()).substring(0, 20).trim();
+                txtO = Helper.shorterVersion(Helper.getTextFromP(((P) pOv).getContent()).trim());
 
                 //match on text
                 if (capR.compareTo(capO) == 0 && txtR.compareTo(txtO) == 0) {
 
-//                    System.out.println("\t"+pOp.getPPr().getFramePr().getDropCap().value()+" "+capO+" "+txtO);
+//                    writeReport("\t"+pOp.getPPr().getFramePr().getDropCap().value()+" "+capO+" "+txtO);
                     if (rOp.getPPr().getFramePr().getDropCap().value().compareTo(pOp.getPPr().getFramePr().getDropCap().value()) == 0) {
                         if (rOp.getPPr().getFramePr().getLines().intValue() == pOp.getPPr().getFramePr().getLines().intValue()) {
                             counterDL++;
@@ -739,27 +745,26 @@ public class Verifier {
             }
         }
 
-//        System.out.println((double) counterDL / capCounterOriginal.doubleValue() + " " + (double) counterD / capCounterOriginal.doubleValue() + " " + (double) counterML / capCounterOriginal.doubleValue() + " " + (double) counterM / capCounterOriginal.doubleValue());
+//        writeReport((double) counterDL / capCounterOriginal.doubleValue() + " " + (double) counterD / capCounterOriginal.doubleValue() + " " + (double) counterML / capCounterOriginal.doubleValue() + " " + (double) counterM / capCounterOriginal.doubleValue());
         if ((double) counterDL / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_2) {
             grade += 6;
-            System.out.println("\tMost Specs! +" + grade);
+            writeReport("\tMost Specs! +" + grade);
         } else if ((double) counterD / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_1) {
             grade += 5;
-            System.out.println("\t66% - 89%! +" + grade);
+            writeReport("\t66% - 89%! +" + grade);
         } else if ((double) counterD / capCounterOriginal.doubleValue() < Verifier.CD_LIMIT_1 && (double) counterML / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_1 && (double) counterML / capCounterOriginal.doubleValue() <= Verifier.CD_LIMIT_2) {
             grade += 4;
-            System.out.println("\t40% - 65%! +" + grade);
+            writeReport("\t40% - 65%! +" + grade);
         } else if ((double) counterML / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_2 && (double) counterD / capCounterOriginal.doubleValue() < Verifier.CD_LIMIT_1) {
             grade += 2;
-            System.out.println("\t11% - 39%! +" + grade);
+            writeReport("\t11% - 39%! +" + grade);
         } else if ((double) counterM / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_1 && (double) counterM / capCounterOriginal.doubleValue() <= Verifier.CD_LIMIT_2) {
             grade += 1;
-            System.out.println("\t 0% - 10%! +" + grade);
-        } else {
-            grade += 0;
+            writeReport("\t 0% - 10%! +" + grade);
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_CAP);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_CAP);
+        grades.addLast(grade);
         totalGrade += grade;
     }
 
@@ -776,7 +781,7 @@ public class Verifier {
         LinkedList dropCapOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList dropCapResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
 
-        System.out.println("Grading: Columns");
+        writeReport("Grading: Columns");
 
         //Has Columns
         totalSpecs++;
@@ -827,7 +832,7 @@ public class Verifier {
 
                 }));
 
-//                System.out.println((double) similars.doubleValue() / linsideR.size());
+//                writeReport((double) similars.doubleValue() / linsideR.size());
                 //Similar columns/total > threshold
                 //If and only if they're similars paragraphs then check others specs
                 if ((double) similars.doubleValue() / linsideR.size() >= Verifier.COLUMN_THRESHOLD_SAME_PARAGRAPHS) {
@@ -837,21 +842,21 @@ public class Verifier {
                     //Same number of columns by columns group
                     totalSpecs++;
                     specs = (pO2.getPPr().getSectPr().getCols().getNum().intValue() == pR2.getPPr().getSectPr().getCols().getNum().intValue()) ? specs + 1 : specs - 1;
-//                    System.out.println((pO2.getPPr().getSectPr().getCols().getNum().intValue() == pR2.getPPr().getSectPr().getCols().getNum().intValue()) );
+//                    writeReport((pO2.getPPr().getSectPr().getCols().getNum().intValue() == pR2.getPPr().getSectPr().getCols().getNum().intValue()) );
 
                     //Same number or paragraphs inside
                     totalSpecs++;
                     specs = (linsideO.size() == linsideR.size()) ? specs + 1 : specs - 1;
-//                    System.out.println(linsideO.size() == linsideR.size());
+//                    writeReport(linsideO.size() == linsideR.size());
 
                     //Same separator by groups
                     totalSpecs++;
                     specs = (XmlUtils.marshaltoString(pO2, true, true).contains("w:sep") && XmlUtils.marshaltoString(pR2, true, true).contains("w:sep")) ? specs + 1 : specs - 1;
-//                    System.out.println(XmlUtils.marshaltoString(pO2, true, true).contains("w:sep") && XmlUtils.marshaltoString(pR2, true, true).contains("w:sep"));
+//                    writeReport(XmlUtils.marshaltoString(pO2, true, true).contains("w:sep") && XmlUtils.marshaltoString(pR2, true, true).contains("w:sep"));
 
                     totalSpecs++;
                     specs = (similars.intValue() == linsideR.size()) ? specs + 1 : specs - 1;
-//                    System.out.println("Same Texts: "+similars.intValue() +" "+ linsideR.size());
+//                    writeReport("Same Texts: "+similars.intValue() +" "+ linsideR.size());
                 }
 
                 if (found) {
@@ -867,24 +872,20 @@ public class Verifier {
 
         }
 
-//        System.out.println(specs+" "+totalSpecs);
-        if (specs == 0) {
-            grade = 0;
-            System.out.println("\tNone! " + grade);
+//        writeReport(specs+" "+totalSpecs);
+        if ((double) specs / totalSpecs >= Verifier.COLUMN_LIMIT_2) {
+            grade += 10;
+            writeReport("\tMost Specs! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.COLUMN_LIMIT_1) {
+            grade += 5;
+            writeReport("\t40% - 89%! +" + grade);
         } else {
-            if ((double) specs / totalSpecs >= Verifier.COLUMN_LIMIT_2) {
-                grade += 10;
-                System.out.println("\tMost Specs! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.COLUMN_LIMIT_1) {
-                grade += 5;
-                System.out.println("\t40% - 89%! +" + grade);
-            } else {
-                grade += 1;
-                System.out.println("\t 0% - 39%! +" + grade);
-            }
+            grade += 1;
+            writeReport("\t 0% - 39%! +" + grade);
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_COLUMNS);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_COLUMNS);
+        grades.addLast(grade);
         totalGrade += grade;
 
     }
@@ -903,7 +904,7 @@ public class Verifier {
         if (txtBdrOriginal.size() == txtBdrResponse.size()) {
             spec_numberPR = 1;
         }
-//        System.out.println(spec_numberPR + " " + spec_numberPO);
+//        writeReport(spec_numberPR + " " + spec_numberPO);
 
         AtomicInteger i = new AtomicInteger(0);
         AtomicInteger countEqualTxtO = new AtomicInteger(0), countEqualTxtR = new AtomicInteger(0);
@@ -958,9 +959,9 @@ public class Verifier {
 
                         if (borderR != null) {
 
-//                            System.out.println("Top");
-//                            System.out.println("O: " + borderO.getVal().value());
-//                            System.out.println("R: " + borderR.getVal().value());
+//                            writeReport("Top");
+//                            writeReport("O: " + borderO.getVal().value());
+//                            writeReport("R: " + borderR.getVal().value());
                             if (borderO.getVal().value().compareTo(borderR.getVal().value()) == 0) {
                                 countSameBTypeR.getAndIncrement();
                             }
@@ -970,9 +971,9 @@ public class Verifier {
 
                             if (Helper.similarTo(colorO, colorR, 1.0)) {
                                 countSameColorR.getAndIncrement();
-//                                System.out.println("T-Same " + colorO + " " + colorR);
+//                                writeReport("T-Same " + colorO + " " + colorR);
                             } else {
-//                                System.out.println("T-Diff " + colorO + " " + colorR);
+//                                writeReport("T-Diff " + colorO + " " + colorR);
                             }
                         }
                     }
@@ -987,9 +988,9 @@ public class Verifier {
 
                         if (borderR != null) {
 
-//                            System.out.println("Bottom");
-//                            System.out.println("O: " + borderO.getVal().value());
-//                            System.out.println("R: " + borderR.getVal().value());
+//                            writeReport("Bottom");
+//                            writeReport("O: " + borderO.getVal().value());
+//                            writeReport("R: " + borderR.getVal().value());
                             if (borderO.getVal().value().compareTo(borderR.getVal().value()) == 0) {
                                 countSameBTypeR.getAndIncrement();
                             }
@@ -999,9 +1000,9 @@ public class Verifier {
 
                             if (Helper.similarTo(colorO, colorR, 1.0)) {
                                 countSameColorR.getAndIncrement();
-//                                System.out.println("B-Same " + colorO + " " + colorR);
+//                                writeReport("B-Same " + colorO + " " + colorR);
                             } else {
-//                                System.out.println("B-Diff " + colorO + " " + colorR);
+//                                writeReport("B-Diff " + colorO + " " + colorR);
                             }
                         }
                     }
@@ -1016,9 +1017,9 @@ public class Verifier {
 
                         if (borderR != null) {
 
-//                            System.out.println("Left");
-//                            System.out.println("O: " + borderO.getVal().value());
-//                            System.out.println("R: " + borderR.getVal().value());
+//                            writeReport("Left");
+//                            writeReport("O: " + borderO.getVal().value());
+//                            writeReport("R: " + borderR.getVal().value());
                             if (borderO.getVal().value().compareTo(borderR.getVal().value()) == 0) {
                                 countSameBTypeR.getAndIncrement();
                             }
@@ -1028,9 +1029,9 @@ public class Verifier {
 
                             if (Helper.similarTo(colorO, colorR, 1.0)) {
                                 countSameColorR.getAndIncrement();
-//                                System.out.println("L-Same " + colorO + " " + colorR);
+//                                writeReport("L-Same " + colorO + " " + colorR);
                             } else {
-//                                System.out.println("L-Diff " + colorO + " " + colorR);
+//                                writeReport("L-Diff " + colorO + " " + colorR);
                             }
                         }
                     }
@@ -1045,9 +1046,9 @@ public class Verifier {
 
                         if (borderR != null) {
 
-//                            System.out.println("Right");
-//                            System.out.println("O: " + borderO.getVal().value());
-//                            System.out.println("R: " + borderR.getVal().value());
+//                            writeReport("Right");
+//                            writeReport("O: " + borderO.getVal().value());
+//                            writeReport("R: " + borderR.getVal().value());
                             if (borderO.getVal().value().compareTo(borderR.getVal().value()) == 0) {
                                 countSameBTypeR.getAndIncrement();
                             }
@@ -1057,9 +1058,9 @@ public class Verifier {
 
                             if (Helper.similarTo(colorO, colorR, 1.0)) {
                                 countSameColorR.getAndIncrement();
-//                                System.out.println("R-Same " + colorO + " " + colorR);
+//                                writeReport("R-Same " + colorO + " " + colorR);
                             } else {
-//                                System.out.println("R-Diff " + colorO + " " + colorR);
+//                                writeReport("R-Diff " + colorO + " " + colorR);
                             }
                         }
                     }
@@ -1074,25 +1075,25 @@ public class Verifier {
 
         spec_samePO = 1;
         spec_samePR = (double) (countEqualTxtR.doubleValue() / (countEqualTxtO.doubleValue() == 0 ? 1 : countEqualTxtO.doubleValue()));
-//        System.out.println("Equal text: " + countEqualTxtR + " " + countEqualTxtO + " " + spec_samePR);
+//        writeReport("Equal text: " + countEqualTxtR + " " + countEqualTxtO + " " + spec_samePR);
 
         //Same border in paragraphs
         double spec_sameBO = 0, spec_sameBR = 0;
         spec_sameBO = 1;
         spec_sameBR = (double) (countSameBTypeR.doubleValue() / (countSameBTypeO.doubleValue() == 0 ? 1 : countSameBTypeO.doubleValue()));
-//        System.out.println("Equal border: " + countSameBTypeR + " " + countSameBTypeO + " " + spec_sameBR);
+//        writeReport("Equal border: " + countSameBTypeR + " " + countSameBTypeO + " " + spec_sameBR);
 
         //Same border color in paragraphs
         double spec_sameCO = 0, spec_sameCR = 0;
         spec_sameCO = 1;
         spec_sameCR = (double) (countSameColorR.doubleValue() / (countSameColorO.doubleValue() == 0 ? 1 : countSameColorO.doubleValue()));
-//        System.out.println("Equal color: " + countSameColorR + " " + countSameColorO + " " + spec_sameCR);
+//        writeReport("Equal color: " + countSameColorR + " " + countSameColorO + " " + spec_sameCR);
 
         //Same shading in paragraphs
         double spec_sameSHO = 0, spec_sameSHR = 0;
         spec_sameSHO = 1;
         spec_sameSHR = (double) (countSameShadingR.doubleValue() / (countSameShadingO.doubleValue() == 0 ? 1 : countSameShadingO.doubleValue()));
-//        System.out.println("Equal shading: " + countSameShadingR + " " + countSameShadingO + " " + spec_sameSHR);
+//        writeReport("Equal shading: " + countSameShadingR + " " + countSameShadingO + " " + spec_sameSHR);
 
         //Images
         query = "//w:p[.//pic:spPr[.//a:prstDash or .//a:srgbClr]]//pic:pic";
@@ -1104,13 +1105,14 @@ public class Verifier {
         if (imagesOriginal.size() == imagesResponse.size()) {
             spec_numberIR = 1;
         }
-//        System.out.println(spec_numberIR + " " + spec_numberIO);
+//        writeReport(spec_numberIR + " " + spec_numberIO);
 
         AtomicInteger sameNameImgO = new AtomicInteger(0), sameNameImgR = new AtomicInteger(0);
         AtomicInteger sameDashImgO = new AtomicInteger(0), sameDashImgR = new AtomicInteger(0);
 
-        imagesOriginal.stream().forEach((objO) -> {
-//        for (int i = 0; i < imagesOriginal.size(); i++) {
+//        imagesOriginal.stream().forEach((objO) -> {
+        for (int k = 0; k < imagesOriginal.size(); k++) {
+            Object objO = imagesOriginal.get(k);
             Pic picO = (Pic) ((javax.xml.bind.JAXBElement) objO).getValue(); //imagesOriginal.get(i)).getValue();
             String picNameO = picO.getNvPicPr().getCNvPr().getDescr();
 
@@ -1122,54 +1124,58 @@ public class Verifier {
                 if (picNameO.compareTo(picNameR) == 0) {
                     sameNameImgR.getAndIncrement();
 
-                    String dashO = picO.getSpPr().getLn().getPrstDash().getVal().value();
-                    String dashR = picR.getSpPr().getLn().getPrstDash().getVal().value();
+                    try {
+                        String dashO = picO.getSpPr().getLn().getPrstDash().getVal().value();
+                        String dashR = picR.getSpPr().getLn().getPrstDash().getVal().value();
 
-                    sameDashImgO.getAndIncrement();
-                    if (dashO.compareTo(dashR) == 0) {
-                        sameDashImgR.getAndIncrement();
+                        sameDashImgO.getAndIncrement();
+                        if (dashO.compareTo(dashR) == 0) {
+                            sameDashImgR.getAndIncrement();
+                        }
+                    } catch (Exception ex) {
                     }
 
                 }
             }
-        });
+        }
 
         double spec_sameIO = 0, spec_sameIR = 0;
 
         spec_sameIO = 1;
         spec_sameIR = (double) (sameNameImgR.doubleValue() / (sameNameImgO.doubleValue() == 0 ? 1 : sameNameImgO.doubleValue()));
-//        System.out.println("Equal image: " + sameNameImgR + " " + sameNameImgO + " " + spec_sameIR);
+//        writeReport("Equal image: " + sameNameImgR + " " + sameNameImgO + " " + spec_sameIR);
 
         double spec_sameDashO = 0, spec_sameDashR = 0;
 
         spec_sameDashO = 1;
         spec_sameDashR = (double) (sameDashImgR.doubleValue() / (sameDashImgO.doubleValue() == 0 ? 1 : sameDashImgO.doubleValue()));
-//        System.out.println("Equal dash: " + sameDashImgR + " " + sameDashImgO + " " + spec_sameDashR);
+//        writeReport("Equal dash: " + sameDashImgR + " " + sameDashImgO + " " + spec_sameDashR);
 
         double totalO = spec_numberIO + spec_numberPO + spec_samePO + spec_sameIO + ((spec_sameDashO) / (spec_sameIO == 0 ? 1 : spec_sameIO)) + ((spec_sameBO + spec_sameCO + spec_sameSHO) / (spec_samePO == 0 ? 1 : spec_samePO));
         double totalR = spec_numberIR + spec_numberPR + spec_samePR + spec_sameIR + ((spec_sameDashR) / (spec_sameIR == 0 ? 1 : spec_sameIR)) + ((spec_sameBR + spec_sameCR + spec_sameSHR) / (spec_samePR == 0 ? 1 : spec_samePR));
 
-        System.out.println("Grading: Borders");
+        writeReport("Grading: Borders");
 
-//        System.out.println(totalR + " " + totalO);
+//        writeReport(totalR + " " + totalO);
         if ((double) totalR / totalO > Verifier.BDR_LIMIT_1) {
             grade += 10;
-            System.out.println("\tMost Specs! +" + grade);
+            writeReport("\tMost Specs! +" + grade);
         } else if ((double) totalR / totalO > Verifier.BDR_LIMIT_2) {
             grade += 9;
-            System.out.println("\t66% - 89%! +" + grade);
+            writeReport("\t66% - 89%! +" + grade);
         } else if ((double) totalR / totalO > Verifier.BDR_LIMIT_3) {
             grade += 7;
-            System.out.println("\t40% - 65%! +" + grade);
+            writeReport("\t40% - 65%! +" + grade);
         } else if ((double) totalR / totalO > Verifier.BDR_LIMIT_4) {
             grade += 4;
-            System.out.println("\t11% - 39%! +" + grade);
+            writeReport("\t11% - 39%! +" + grade);
         } else {
             grade += 1;
-            System.out.println("\t 0% - 10%! +" + grade);
+            writeReport("\t 0% - 10%! +" + grade);
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BORDER);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_BORDER);
+        grades.addLast(grade);
         totalGrade += grade;
     }
 
@@ -1269,10 +1275,10 @@ public class Verifier {
                             specs++;
                         }
 
-//                        System.out.println("TEXT: "+totalSpecs + " " + valO + " " + specs + " " + valR);
+//                        writeReport("TEXT: "+totalSpecs + " " + valO + " " + specs + " " + valR);
                         totalSpecs++;
                         specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
-//                        System.out.println("NUMBERED: "+totalSpecs + " " + valO + " " + specs + " " + valR);
+//                        writeReport("NUMBERED: "+totalSpecs + " " + valO + " " + specs + " " + valR);
 
                     } else {
                     }
@@ -1285,10 +1291,10 @@ public class Verifier {
                             specs++;
                         }
 
-//                        System.out.println("TEXT: "+totalSpecs + " " + valO + " " + specs + " " + valR);
+//                        writeReport("TEXT: "+totalSpecs + " " + valO + " " + specs + " " + valR);
                         totalSpecs++;
                         specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
-//                        System.out.println("NUMBERED: "+totalSpecs + " " + valO + " " + specs + " " + valR);
+//                        writeReport("NUMBERED: "+totalSpecs + " " + valO + " " + specs + " " + valR);
 
                     } else {
                     }
@@ -1301,10 +1307,10 @@ public class Verifier {
                             specs++;
                         }
 
-//                        System.out.println(totalSpecs + " " + valO + " " + specs + " " + valR);
+//                        writeReport(totalSpecs + " " + valO + " " + specs + " " + valR);
                         totalSpecs++;
                         specs = valO.isNumbered() == valR.isNumbered() ? specs + 1 : specs;
-//                        System.out.println(totalSpecs + " " + valO + " " + specs + " " + valR);
+//                        writeReport(totalSpecs + " " + valO + " " + specs + " " + valR);
 
                     } else {
                     }
@@ -1330,8 +1336,8 @@ public class Verifier {
 //                //Verify numbered footer
 //                totalSpecs = isFooterNumbered(elOriginal) ? totalSpecs + 1 : totalSpecs;
 //                totalSpecs = getContentFooter(elOriginal) != null ? totalSpecs + 1 : totalSpecs;
-//                System.out.println("O numbered: " + isFooterNumbered(elOriginal));
-//                System.out.println("O content: " + getContentFooter(elOriginal));
+//                writeReport("O numbered: " + isFooterNumbered(elOriginal));
+//                writeReport("O content: " + getContentFooter(elOriginal));
 //
 //            }
 //
@@ -1342,12 +1348,12 @@ public class Verifier {
 //                if (elResponse != null) {
 //                    specs = isFooterNumbered(elResponse) ? (isFooterNumbered(elOriginal) == isFooterNumbered(elResponse) ? specs + 1 : specs - 1) : specs;
 //                    specs = getContentFooter(elResponse) != null ? (getContentFooter(elOriginal).equals(getContentFooter(elResponse)) ? specs + 1 : specs - 1) : specs;
-//                    System.out.println("R numbered: " + isFooterNumbered(elResponse));
-//                    System.out.println("R content: " + getContentFooter(elResponse));
+//                    writeReport("R numbered: " + isFooterNumbered(elResponse));
+//                    writeReport("R content: " + getContentFooter(elResponse));
 //                }
 //            }
 //        }
-        System.out.println("Grading: Footer");
+        writeReport("Grading: Footer");
 
         //Has footer
         totalSpecs++;
@@ -1355,23 +1361,19 @@ public class Verifier {
             specs++;
         }
 
-        if (specs == 0) {
-            grade = 0;
-            System.out.println("\tNone! " + grade);
+        if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_2) {
+            grade += 10;
+            writeReport("\tMost Specs! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_1) {
+            grade += 5;
+            writeReport("\t40% - 89%! +" + grade);
         } else {
-            if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_2) {
-                grade += 10;
-                System.out.println("\tMost Specs! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_1) {
-                grade += 5;
-                System.out.println("\t40% - 89%! +" + grade);
-            } else {
-                grade += 1;
-                System.out.println("\t 0% - 39%! +" + grade);
-            }
+            grade += 1;
+            writeReport("\t 0% - 39%! +" + grade);
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTER);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTER);
+        grades.addLast(grade);
         totalGrade += grade;
     }
 
@@ -1469,66 +1471,66 @@ public class Verifier {
 
             //Counting its text
             totalSpecs++;
-            contentO = Helper.getTextFromP(p1.getContent()).substring(0, 20);
+            //contentO = Helper.getTextFromP(p1.getContent()).substring(0, 20);
+            contentO = Helper.shorterVersion(Helper.getTextFromP(p1.getContent()));
 
             valuesO = getAbstractBulletLevel(Verifier.INDEX_ORIGINAL, numIdO, ilvlO);
 
-//            System.out.println(ilvlO + " " + numIdO + " " + contentO+" "+valuesO);
+//            writeReport(ilvlO + " " + numIdO + " " + contentO+" "+valuesO);
             for (P p2 : pBulletResponse) {
 
                 numIdR = p2.getPPr().getNumPr().getNumId().getVal().intValue();
                 ilvlR = p2.getPPr().getNumPr().getIlvl().getVal().intValue();
 
-                contentR = Helper.getTextFromP(p2.getContent()).substring(0, 19);
+                //contentR = Helper.getTextFromP(p2.getContent()).substring(0, 19);
+                contentR = Helper.shorterVersion(Helper.getTextFromP(p2.getContent()));
 
                 valuesR = getAbstractBulletLevel(Verifier.INDEX_RESPONSE, numIdR, ilvlR);
 
                 //Counting same text in response
                 if (contentO.contains(contentR)) {
                     specs++;
-//                    System.out.println(ilvlR + " " + numIdR + " " + contentR);
+//                    writeReport(ilvlR + " " + numIdR + " " + contentR);
 
-                    //Counting same bullet type
-                    if (valuesR.get(1).equals(valuesO.get(1))) {
-                        specs++;
-
-                        //Counting same bullet symbol
-                        if (valuesR.get(0).equals(valuesO.get(0))) {
-//                            System.out.println(valuesR);
+                    if (valuesR != null && valuesO != null) {
+                        //Counting same bullet type
+                        if (valuesR.get(1).equals(valuesO.get(1))) {
                             specs++;
-                        }
 
+                            //Counting same bullet symbol
+                            if (valuesR.get(0).equals(valuesO.get(0))) {
+//                            writeReport(valuesR);
+                                specs++;
+                            }
+
+                        }
                     }
                 }
 
             }
         }
 
-        System.out.println("Grading: Bullets");
+        writeReport("Grading: Bullets");
 
-        if (specs == 0) {
-            grade = 0;
-            System.out.println("\tNone! " + grade);
+        if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_4) {
+            grade += 7;
+            writeReport("\tMost Specs! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_3) {
+            grade += 6;
+            writeReport("\t66% - 89%! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_2) {
+            grade += 5;
+            writeReport("\t40% - 65%! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_1) {
+            grade += 3;
+            writeReport("\t11% - 39%! +" + grade);
         } else {
-            if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_4) {
-                grade += 7;
-                System.out.println("\tMost Specs! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_3) {
-                grade += 6;
-                System.out.println("\t66% - 89%! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_2) {
-                grade += 5;
-                System.out.println("\t40% - 65%! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BULLET_LIMIT_1) {
-                grade += 3;
-                System.out.println("\t11% - 39%! +" + grade);
-            } else {
-                grade += 1;
-                System.out.println("\t 0% - 10%! +" + grade);
-            }
+            grade += 1;
+            writeReport("\t 0% - 10%! +" + grade);
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BULLET);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_BULLET);
+        grades.addLast(grade);
         totalGrade += grade;
     }
 
@@ -1575,8 +1577,11 @@ public class Verifier {
 
         int i;
         for (i = 0; i < elements.size(); i++) {
-            if (elements.get(i) instanceof P && ((P) elements.get(i)).getParaId().compareTo(p.getParaId()) == 0) {
-                break;
+            if (elements.get(i) instanceof P) {
+                P p2 = (P) elements.get(i);
+                if (p2.getParaId() != null && p2.getParaId().compareTo(p.getParaId()) == 0) {
+                    break;
+                }
             }
         }
 
@@ -1623,14 +1628,18 @@ public class Verifier {
 
         //Otherwise: look for something on previousTextsO
         //first: my position
-        int i;
+        int i = elements.size();
+
         for (i = 0; i < elements.size(); i++) {
-            if (elements.get(i) instanceof P && ((P) elements.get(i)).getParaId().compareTo(p.getParaId()) == 0) {
-                break;
+            if (elements.get(i) instanceof P) {
+                P p2 = (P) elements.get(i);
+                if (p2.getTextId() != null && p2.getTextId().compareTo(p.getTextId()) == 0) {
+                    break;
+                }
             }
         }
 
-        //System.out.println("RsidR " + p.getParaId() + " curent position: " + i);
+        //writeReport("RsidR " + p.getParaId() + " curent position: " + i);
         //looking for previousTextsO with any content
         for (int j = i - 1; j >= 0; j--) {
             //check for text
@@ -1676,10 +1685,10 @@ public class Verifier {
         }
 
         /*for(int i = 0; i < previousTextsO.size(); i++)
-         System.out.println("O: "+previousTextsO.get(i));
+         writeReport("O: "+previousTextsO.get(i));
         
          for(int j = 0; j < previousTextsR.size(); j++)
-         System.out.println("R: "+previousTextsR.get(j));*/
+         writeReport("R: "+previousTextsR.get(j));*/
         totalSpecs++;
         if (previousTextsO.size() == previousTextsR.size()) {
             specs++;
@@ -1691,17 +1700,19 @@ public class Verifier {
             totalSpecs++;
             //found = false;
             for (int j = 0; j < previousTextsR.size(); j++) {
-                if (Helper.shorterVersion(previousTextsO.get(i).toString()).compareTo(Helper.shorterVersion(previousTextsR.get(j).toString())) == 0) {
-                    previousTextsR.remove(j);
-                    specs++;
-                    //found = true;
+                if (previousTextsO.get(i) != null && previousTextsR.get(j) != null) {
+                    if (Helper.shorterVersion(previousTextsO.get(i).toString()).compareTo(Helper.shorterVersion(previousTextsR.get(j).toString())) == 0) {
+                        previousTextsR.remove(j);
+                        specs++;
+                        //found = true;
+                    }
                 }
             }
             /*if(!found)
              specs--; */
         }
 
-        //System.out.println(specs + " :: " + totalSpecs);
+        //writeReport(specs + " :: " + totalSpecs);
         previousTextsO.clear();
         elements = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         breaks = getSectionBreaks(Verifier.INDEX_ORIGINAL).iterator();
@@ -1717,10 +1728,10 @@ public class Verifier {
         }
 
         /*for(int i = 0; i < previousTextsO.size(); i++)
-         System.out.println("O: "+previousTextsO.get(i));
+         writeReport("O: "+previousTextsO.get(i));
         
          for(int j = 0; j < previousTextsR.size(); j++)
-         System.out.println("R: "+previousTextsR.get(j));*/
+         writeReport("R: "+previousTextsR.get(j));*/
         totalSpecs++;
         if (previousTextsO.size() == previousTextsR.size()) {
             specs++;
@@ -1743,32 +1754,28 @@ public class Verifier {
 
         specs = ((double) countSimilarities / size >= Verifier.BREAKS_THRESHOLD_SAME_PAGEBREAKS) ? specs + 1 : specs;
 
-        //System.out.println(specs+" :: "+totalSpecs);
-        System.out.println("Grading: Page Breaks and Sections");
+        //writeReport(specs+" :: "+totalSpecs);
+        writeReport("Grading: Page Breaks and Sections");
 
-        if (specs == 0) {
-            grade = 0;
-            System.out.println("\tNone! " + grade);
+        if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_4) {
+            grade += 10;
+            writeReport("\tMost Specs! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_3) {
+            grade += 8;
+            writeReport("\t66% - 89%! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_2) {
+            grade += 6;
+            writeReport("\t40% - 65%! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_1) {
+            grade += 4;
+            writeReport("\t11% - 39%! +" + grade);
         } else {
-            if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_4) {
-                grade += 10;
-                System.out.println("\tMost Specs! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_3) {
-                grade += 8;
-                System.out.println("\t66% - 89%! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_2) {
-                grade += 6;
-                System.out.println("\t40% - 65%! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.BREAK_LIMIT_1) {
-                grade += 4;
-                System.out.println("\t11% - 39%! +" + grade);
-            } else {
-                grade += 1;
-                System.out.println("\t 0% - 10%! +" + grade);
-            }
+            grade += 1;
+            writeReport("\t 0% - 10%! +" + grade);
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_BREAK);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_BREAK);
+        grades.addLast(grade);
         totalGrade += grade;
 
     }
@@ -1868,32 +1875,28 @@ public class Verifier {
             specs += chechStyleParagraph(pElementR, sResponse);
         }
 
-        //System.out.println(specs+" :: "+totalSpecs);
-        System.out.println("Grading: Document format");
+        //writeReport(specs+" :: "+totalSpecs);
+        writeReport("Grading: Document format");
 
-        if (specs == 0) {
-            grade = 0;
-            System.out.println("\tNone! " + grade);
+        if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_4) {
+            grade += 15;
+            writeReport("\tMost Specs! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_3) {
+            grade += 13;
+            writeReport("\t66% - 89%! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_2) {
+            grade += 10;
+            writeReport("\t40% - 65%! +" + grade);
+        } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_1) {
+            grade += 6;
+            writeReport("\t11% - 39%! +" + grade);
         } else {
-            if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_4) {
-                grade += 15;
-                System.out.println("\tMost Specs! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_3) {
-                grade += 13;
-                System.out.println("\t66% - 89%! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_2) {
-                grade += 10;
-                System.out.println("\t40% - 65%! +" + grade);
-            } else if ((double) specs / totalSpecs >= Verifier.DFORMAT_LIMIT_1) {
-                grade += 6;
-                System.out.println("\t11% - 39%! +" + grade);
-            } else {
-                grade += 2;
-                System.out.println("\t 0% - 10%! +" + grade);
-            }
+            grade += 2;
+            writeReport("\t 0% - 10%! +" + grade);
         }
 
-        System.out.println("\tGrade: " + grade + "/" + Verifier.GRADE_DFORMAT);
+        writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_DFORMAT);
+        grades.addLast(grade);
         totalGrade += grade;
 
     }
@@ -1902,6 +1905,7 @@ public class Verifier {
         loadDocument(Verifier.INDEX_ORIGINAL);
         loadDocument(Verifier.INDEX_RESPONSE);
 
+        createReport();
         validateTOC();
         validateBdr();
         validateFootNote();
@@ -1911,8 +1915,35 @@ public class Verifier {
         validateBullet();
         validateBreaks();
         validateFormat();
-        System.out.println("Total Grade: " + totalGrade + "/" + Verifier.GRADE_TOTAL);
+        writeReport("Total Grade: " + totalGrade + "/" + Verifier.GRADE_TOTAL);
+        grades.addLast(totalGrade);
+        closeReport();
+    }
 
+    private void createReport() throws Exception {
+        fwIndividual = new java.io.FileWriter(this.getFileName(Verifier.INDEX_RESPONSE).replace(".docx", "-grade.txt"));
+        String path = this.getFileName(Verifier.INDEX_ORIGINAL);
+        path = path.substring(0, path.lastIndexOf("/")+1);
+        fwGrupal = new java.io.FileWriter(path+"resume-responses.csv", true);
+    }
+
+    private void writeReport(String line) throws Exception {
+        if (fwIndividual != null) {
+            fwIndividual.write(line + "\n");
+        }
+    }
+
+    private void closeReport() throws Exception {
+        if (fwIndividual != null) {
+            fwIndividual.close();
+        }
+        if (fwGrupal != null) {
+            grades.addFirst(this.getFileName(Verifier.INDEX_RESPONSE).replace(".doc", ""));
+            for(int i = 0; i < grades.size()-1; i++)
+                fwGrupal.write(grades.get(i)+";");
+            fwGrupal.write(grades.get(grades.size()-1)+"\n");
+            fwGrupal.close();
+        }
     }
 
     private void saveFiles() throws Exception {
@@ -1942,7 +1973,7 @@ public class Verifier {
         while (it.hasNext()) {
             Relationship rel = it.next();
             JaxbXmlPart part = (JaxbXmlPart) rp.getPart(rel);
-            System.out.println(part.getXML());
+            writeReport(part.getXML());
         }
     }
 

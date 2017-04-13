@@ -1,0 +1,31 @@
+Grading: Table of Contents
+	Has TOC +5
+	Most elements in TOC! +10
+	Most with correct styles! +5
+	Most with correct listing! +5
+	Grade: 25/25
+Grading: Borders
+	Most Specs! +10
+	Grade: 10/10
+Grading: Footnotes
+	Most Specs! +7
+	Grade: 7/7
+Grading: Capital Letters
+	Most Specs! +6
+	Grade: 6/6
+Grading: Columns
+	Most Specs! +10
+	Grade: 10/10
+Grading: Footer
+	Most Specs! +10
+	Grade: 10/10
+Grading: Bullets
+	Most Specs! +7
+	Grade: 7/7
+Grading: Page Breaks and Sections
+	66% - 89%! +8
+	Grade: 8/10
+Grading: Document format
+	Most Specs! +15
+	Grade: 15/15
+Total Grade: 98/100

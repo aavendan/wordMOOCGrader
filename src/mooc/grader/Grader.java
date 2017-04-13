@@ -21,7 +21,7 @@ public class Grader {
             //String original = "docx/Avendaño Allan-seccionWORD_V1R.docx";
             //String original = "docx/Avendaño Allan-seccionWORD_V2.docx";
             String original = "docx/original.docx";
-            String respuesta = "docx/response.docx";
+            String respuesta = "docx/responses/response.docx";
             Verifier v = new Verifier();
             v.setFileName(Verifier.INDEX_ORIGINAL, original);
             v.setFileName(Verifier.INDEX_RESPONSE, respuesta);
@@ -32,8 +32,16 @@ public class Grader {
         }// TODO code application logic here
     }
     
-    public static void p(Object o) {
-        System.out.println(o);
+    public static void printReport(String original, String respuesta) {
+        try {
+            Verifier v = new Verifier();
+            v.setFileName(Verifier.INDEX_ORIGINAL, original);
+            v.setFileName(Verifier.INDEX_RESPONSE, respuesta);
+            v.validate();
+            System.gc();
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
     }
 
     
