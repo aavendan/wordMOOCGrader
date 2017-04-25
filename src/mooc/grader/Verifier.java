@@ -5,6 +5,7 @@
  */
 package mooc.grader;
 
+import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.xml.bind.JAXBElement;
@@ -107,6 +108,8 @@ public class Verifier {
     public int totalGrade;
     public LinkedList grades;
     public java.io.FileWriter fwIndividual,fwGrupal;
+    public String header = "";
+    public boolean firstTime = false;
 
     public Verifier() {
         totalGrade = 0;
@@ -453,8 +456,8 @@ public class Verifier {
 
         //TOC: exist or not
         if (tocResponse.size() > 0) {
-            grade += 5;
             writeReport("\tHas TOC +5");
+            grade += 5;
 
             String tocRElement, tocOElement;
             int sameInOriginal = 0, notHere = 0, missing = 0, totalTOC;
@@ -557,6 +560,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_TOC);
         grades.addFirst(grade);
         totalGrade += grade;
+        header += "TOC;";
     }
 
     private boolean isFootnoteReference(Object o) {
@@ -683,6 +687,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTNOTE);
         grades.addLast(grade);
         totalGrade += grade;
+        header += "Footnote;";
     }
 
     private void validateDropCap() throws Exception {
@@ -766,6 +771,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_CAP);
         grades.addLast(grade);
         totalGrade += grade;
+        header += "DropCap;";
     }
 
     private void validateColumns() throws Exception {
@@ -887,7 +893,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_COLUMNS);
         grades.addLast(grade);
         totalGrade += grade;
-
+        header += "Columns;";
     }
 
     private void validateBdr() throws Exception {
@@ -1177,6 +1183,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_BORDER);
         grades.addLast(grade);
         totalGrade += grade;
+        header += "Border;";
     }
 
     private boolean isFooterNumbered(FooterPart footer) {
@@ -1375,6 +1382,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_FOOTER);
         grades.addLast(grade);
         totalGrade += grade;
+        header += "Footer;";
     }
 
     private LinkedList<P> getBullets(int id) throws Exception {
@@ -1532,6 +1540,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_BULLET);
         grades.addLast(grade);
         totalGrade += grade;
+        header += "Bullets;";
     }
 
     public LinkedList getPageBreaks(int index) throws Exception {
@@ -1777,6 +1786,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_BREAK);
         grades.addLast(grade);
         totalGrade += grade;
+        header += "Break;";
 
     }
 
@@ -1898,7 +1908,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_DFORMAT);
         grades.addLast(grade);
         totalGrade += grade;
-
+        header += "Footer;";
     }
 
     public void validate() throws Exception {
@@ -1923,7 +1933,9 @@ public class Verifier {
     private void createReport() throws Exception {
         fwIndividual = new java.io.FileWriter(this.getFileName(Verifier.INDEX_RESPONSE).replace(".docx", "-grade.txt"));
         String path = this.getFileName(Verifier.INDEX_ORIGINAL);
-        path = path.substring(0, path.lastIndexOf("/")+1);
+        path = path.substring(0, path.lastIndexOf("/")+1);        
+        
+        firstTime = Files.notExists(Paths.get(path+"resume-responses.csv"));
         fwGrupal = new java.io.FileWriter(path+"resume-responses.csv", true);
     }
 
@@ -1938,6 +1950,10 @@ public class Verifier {
             fwIndividual.close();
         }
         if (fwGrupal != null) {
+            
+            if(firstTime)
+                fwGrupal.write("Nombre;"+header+"Total"+"\n");
+            
             grades.addFirst(this.getFileName(Verifier.INDEX_RESPONSE).replace(".doc", ""));
             for(int i = 0; i < grades.size()-1; i++)
                 fwGrupal.write(grades.get(i)+";");
