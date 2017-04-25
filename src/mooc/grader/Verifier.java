@@ -107,7 +107,7 @@ public class Verifier {
 
     public int totalGrade;
     public LinkedList grades;
-    public java.io.FileWriter fwIndividual,fwGrupal;
+    public java.io.FileWriter fwIndividual, fwGrupal;
     public String header = "";
     public boolean firstTime = false;
 
@@ -452,48 +452,25 @@ public class Verifier {
          P p = (P) obj;
          writeReport(Helper.getTextFromP(p.getContent()));
          });*/
-        writeReport("Grading: Table of Contents");
+        
+        String tocRElement, tocOElement;
+        int sameInOriginal = 0, notHere = 0, missing = 0, totalTOC;
 
-        //TOC: exist or not
-        if (tocResponse.size() > 0) {
-            writeReport("\tHas TOC +5");
-            grade += 5;
+        for (Iterator it = tocOriginal.iterator(); it.hasNext();) {
+            Object oo = it.next();
+            tocOElement = Helper.getTextFromP(((javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink>) oo).getValue().getContent());
+            tocOElement = tocOElement.split("PAGEREF")[0].trim().toLowerCase();
 
-            String tocRElement, tocOElement;
-            int sameInOriginal = 0, notHere = 0, missing = 0, totalTOC;
+            for (Iterator it2 = tocResponse.iterator(); it2.hasNext();) {
+                Object or = it2.next();
+                tocRElement = Helper.getTextFromP(((javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink>) or).getValue().getContent());
+                tocRElement = tocRElement.split("PAGEREF")[0].trim().toLowerCase();
 
-            for (Iterator it = tocOriginal.iterator(); it.hasNext();) {
-                Object oo = it.next();
-                tocOElement = Helper.getTextFromP(((javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink>) oo).getValue().getContent());
-                tocOElement = tocOElement.split("PAGEREF")[0].trim().toLowerCase();
-
-                for (Iterator it2 = tocResponse.iterator(); it2.hasNext();) {
-                    Object or = it2.next();
-                    tocRElement = Helper.getTextFromP(((javax.xml.bind.JAXBElement<org.docx4j.wml.P.Hyperlink>) or).getValue().getContent());
-                    tocRElement = tocRElement.split("PAGEREF")[0].trim().toLowerCase();
-
-                    if (tocRElement.compareTo(tocOElement) == 0) {
-                        sameInOriginal++;
-                    }
+                if (tocRElement.compareTo(tocOElement) == 0) {
+                    sameInOriginal++;
                 }
-
             }
 
-            missing = tocOriginal.size() - sameInOriginal;
-            notHere = tocResponse.size() - sameInOriginal;
-            totalTOC = sameInOriginal - notHere - missing;
-
-            if ((double) totalTOC / tocOriginal.size() >= Verifier.TOC_THRESHOLD_ELEMENTSINTOC) {
-                grade += 10;
-                writeReport("\tMost elements in TOC! +10");
-            } else {
-                grade += 3;
-                writeReport("\tFew elements in TOC +3");
-            }
-
-        } else {
-            grade += 0;
-            writeReport("\tWithout TOC +0");
         }
 
         //Styles: Same headingsOriginal on sResponse file
@@ -539,6 +516,30 @@ public class Verifier {
                 foundListing++;
             }
 
+        }
+        
+        writeReport("Grading: Table of Contents");
+
+        //TOC: exist or not
+        if (tocResponse.size() > 0) {
+            writeReport("\tHas TOC +5");
+            grade += 5;
+
+            missing = tocOriginal.size() - sameInOriginal;
+            notHere = tocResponse.size() - sameInOriginal;
+            totalTOC = sameInOriginal - notHere - missing;
+
+            if ((double) totalTOC / tocOriginal.size() >= Verifier.TOC_THRESHOLD_ELEMENTSINTOC) {
+                grade += 10;
+                writeReport("\tMost elements in TOC! +10");
+            } else {
+                grade += 3;
+                writeReport("\tFew elements in TOC +3");
+            }
+
+        } else {
+            grade += 0;
+            writeReport("\tWithout TOC +0");
         }
 
         //Correct Style
@@ -692,12 +693,10 @@ public class Verifier {
 
     private void validateDropCap() throws Exception {
 
-        int grade = 0;  
+        int grade = 0;
         String query = "//w:p[w:pPr[w:framePr[@w:dropCap]]] | //w:p[w:pPr[w:framePr[@w:dropCap]]]/following-sibling::w:p[1]";
         LinkedList dropCapOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList dropCapResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
-
-        writeReport("Grading: Capital Letters");
 
         AtomicInteger capCounterOriginal = new AtomicInteger(0);
 
@@ -750,6 +749,7 @@ public class Verifier {
             }
         }
 
+        writeReport("Grading: Capital Letters");
 //        writeReport((double) counterDL / capCounterOriginal.doubleValue() + " " + (double) counterD / capCounterOriginal.doubleValue() + " " + (double) counterML / capCounterOriginal.doubleValue() + " " + (double) counterM / capCounterOriginal.doubleValue());
         if ((double) counterDL / capCounterOriginal.doubleValue() >= Verifier.CD_LIMIT_2) {
             grade += 6;
@@ -786,8 +786,6 @@ public class Verifier {
         String query = "//w:p[w:pPr[w:sectPr[w:cols[@w:num]]]] | //w:p[w:pPr[w:sectPr[w:cols[@w:num]]]]/preceding-sibling::w:p[w:pPr[w:sectPr[w:cols]]][1]";
         LinkedList dropCapOriginal = getDocumentObjectByQuery(Verifier.INDEX_ORIGINAL, query);
         LinkedList dropCapResponse = getDocumentObjectByQuery(Verifier.INDEX_RESPONSE, query);
-
-        writeReport("Grading: Columns");
 
         //Has Columns
         totalSpecs++;
@@ -878,6 +876,7 @@ public class Verifier {
 
         }
 
+        writeReport("Grading: Columns");
 //        writeReport(specs+" "+totalSpecs);
         if ((double) specs / totalSpecs >= Verifier.COLUMN_LIMIT_2) {
             grade += 10;
@@ -1360,13 +1359,14 @@ public class Verifier {
 //                }
 //            }
 //        }
-        writeReport("Grading: Footer");
 
         //Has footer
         totalSpecs++;
         if (hasDefault | hasEven | hasFirst) {
             specs++;
         }
+        
+        writeReport("Grading: Footer");
 
         if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_2) {
             grade += 10;
@@ -1933,10 +1933,10 @@ public class Verifier {
     private void createReport() throws Exception {
         fwIndividual = new java.io.FileWriter(this.getFileName(Verifier.INDEX_RESPONSE).replace(".docx", "-grade.txt"));
         String path = this.getFileName(Verifier.INDEX_ORIGINAL);
-        path = path.substring(0, path.lastIndexOf("/")+1);        
-        
-        firstTime = Files.notExists(Paths.get(path+"resume-responses.csv"));
-        fwGrupal = new java.io.FileWriter(path+"resume-responses.csv", true);
+        path = path.substring(0, path.lastIndexOf("/") + 1);
+
+        firstTime = Files.notExists(Paths.get(path + "resume-responses.csv"));
+        fwGrupal = new java.io.FileWriter(path + "resume-responses.csv", true);
     }
 
     private void writeReport(String line) throws Exception {
@@ -1950,14 +1950,16 @@ public class Verifier {
             fwIndividual.close();
         }
         if (fwGrupal != null) {
-            
-            if(firstTime)
-                fwGrupal.write("Nombre;"+header+"Total"+"\n");
-            
+
+            if (firstTime) {
+                fwGrupal.write("Nombre;" + header + "Total" + "\n");
+            }
+
             grades.addFirst(this.getFileName(Verifier.INDEX_RESPONSE).replace(".doc", ""));
-            for(int i = 0; i < grades.size()-1; i++)
-                fwGrupal.write(grades.get(i)+";");
-            fwGrupal.write(grades.get(grades.size()-1)+"\n");
+            for (int i = 0; i < grades.size() - 1; i++) {
+                fwGrupal.write(grades.get(i) + ";");
+            }
+            fwGrupal.write(grades.get(grades.size() - 1) + "\n");
             fwGrupal.close();
         }
     }
