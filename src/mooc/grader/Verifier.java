@@ -452,7 +452,6 @@ public class Verifier {
          P p = (P) obj;
          writeReport(Helper.getTextFromP(p.getContent()));
          });*/
-        
         String tocRElement, tocOElement;
         int sameInOriginal = 0, notHere = 0, missing = 0, totalTOC;
 
@@ -517,18 +516,18 @@ public class Verifier {
             }
 
         }
-        
+
+        missing = tocOriginal.size() - sameInOriginal;
+        notHere = tocResponse.size() - sameInOriginal;
+        totalTOC = sameInOriginal - notHere - missing;
+
         writeReport("Grading: Table of Contents");
 
         //TOC: exist or not
         if (tocResponse.size() > 0) {
-            writeReport("\tHas TOC +5");
             grade += 5;
-
-            missing = tocOriginal.size() - sameInOriginal;
-            notHere = tocResponse.size() - sameInOriginal;
-            totalTOC = sameInOriginal - notHere - missing;
-
+            writeReport("\tHas TOC +5");
+            
             if ((double) totalTOC / tocOriginal.size() >= Verifier.TOC_THRESHOLD_ELEMENTSINTOC) {
                 grade += 10;
                 writeReport("\tMost elements in TOC! +10");
@@ -1359,13 +1358,12 @@ public class Verifier {
 //                }
 //            }
 //        }
-
         //Has footer
         totalSpecs++;
         if (hasDefault | hasEven | hasFirst) {
             specs++;
         }
-        
+
         writeReport("Grading: Footer");
 
         if ((double) specs / totalSpecs >= Verifier.FOOTER_LIMIT_2) {
@@ -1908,7 +1906,7 @@ public class Verifier {
         writeReport("\tGrade: " + grade + "/" + Verifier.GRADE_DFORMAT);
         grades.addLast(grade);
         totalGrade += grade;
-        header += "Footer;";
+        header += "Format;";
     }
 
     public void validate() throws Exception {
@@ -1917,14 +1915,14 @@ public class Verifier {
 
         createReport();
         validateTOC();
+        validateFormat();
         validateBdr();
         validateFootNote();
+        validateFooter();
         validateDropCap();
         validateColumns();
-        validateFooter();
-        validateBullet();
         validateBreaks();
-        validateFormat();
+        validateBullet();
         writeReport("Total Grade: " + totalGrade + "/" + Verifier.GRADE_TOTAL);
         grades.addLast(totalGrade);
         closeReport();
